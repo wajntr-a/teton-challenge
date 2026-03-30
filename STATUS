@@ -8,8 +8,8 @@ DEPLOYMENT: TBD
 CONVENTIONS: Conventional commits
 
 ITERATION: v1
-PHASE: architecture
-STATE: review
+PHASE: implementation-plan
+STATE: in-progress
 UPDATED: 2026-03-30
 
 HISTORY:
@@ -18,3 +18,5 @@ HISTORY:
 - 2026-03-30 | spec | approved | Skipped — architecture decided externally
 - 2026-03-30 | architecture | in-progress | Phase entered
 - 2026-03-30 | architecture | review | Architecture doc complete
+- 2026-03-30 | architecture | approved | Human approved
+- 2026-03-30 | implementation-plan | in-progress | Phase entered
