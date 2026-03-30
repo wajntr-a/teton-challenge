@@ -9,7 +9,7 @@ CONVENTIONS: Conventional commits
 
 ITERATION: v1
 PHASE: architecture
-STATE: in-progress
+STATE: review
 UPDATED: 2026-03-30
 
 HISTORY:
@@ -17,3 +17,4 @@ HISTORY:
 - 2026-03-30 | idea | approved | Skipped — architecture decided externally
 - 2026-03-30 | spec | approved | Skipped — architecture decided externally
 - 2026-03-30 | architecture | in-progress | Phase entered
+- 2026-03-30 | architecture | review | Architecture doc complete
