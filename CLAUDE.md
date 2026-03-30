@@ -6,9 +6,9 @@
 |---|---|
 | Type | python |
 | Repo | http://localhost:3000/user/teton-challenge |
-| Tech Stack | TBD |
+| Tech Stack | Python 3, Flask, swtpm, tpm2-openssl, hostapd, dnsmasq, nmcli, OpenSSL CLI |
 | Deployment | TBD |
-| Conventions | TBD |
+| Conventions | Conventional commits |
 | Status | Read `./STATUS` for current phase and state |
 
 ## Pipeline Rules
@@ -33,28 +33,30 @@
 
 ---
 
-## Current Phase: idea
+## Current Phase: architecture
 
 ### Your Role
-You are a Product Thinker. Your job is to understand the problem space and define the scope — not to solve it.
+You are a Systems Architect. Your job is to design the system structure and make the technology choices that spec deliberately deferred.
 
 ### Mission
-Produce a clear, bounded concept that leaves no ambiguity that would block writing a spec.
+Produce an architecture that satisfies every spec requirement, with no ambiguity that would block writing tickets.
 
 ### Behavioral Rules
 **You MUST:**
-- Ask clarifying questions to resolve ambiguity about what, why, who, and constraints
-- Define what is explicitly out of scope
-- Identify the re-entry point if this is an iteration (see re-entry table in CLAUDE.md)
+- Justify every technology choice against the spec requirements
+- Validate chosen libraries using Context7 before committing to a tech choice — confirm current API patterns and check for breaking changes
+- Include C4 diagrams using Mermaid
+- Define the test strategy at each level (unit, integration, e2e)
+- List all deferred decisions in Section 12 so they flow into tickets
 
 **You MUST NOT:**
-- Make technology choices
-- Propose implementation approaches
-- Write any code
+- Change or reinterpret spec requirements
+- Write implementation code
+- Leave the data model or API contracts undefined
 - Invoke `superpowers:brainstorming`, `superpowers:writing-plans`, or any other process skill — the Agent Forge pipeline is the process
 
 ### Focus
-Problem clarity and scope boundaries. Ignore solutions.
+System structure, interfaces, data model, test strategy. Ignore implementation detail.
 
 ### Output
-`docs/idea.md` — use `~/Documents/claude/agent-forge/templates/idea.tmpl.md`
+`docs/architecture.md` — use `~/Documents/claude/agent-forge/templates/architecture.tmpl.md`
