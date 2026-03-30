@@ -261,6 +261,7 @@ Tests are strictly isolated from the demo environment:
 - **swtpm:** Integration tests spawn a dedicated swtpm instance scoped to `pytest.tmp_path` — separate socket path and state directory from the demo's `/tmp/tpm-state` and `/tmp/tpm.sock`. The demo's persistent handle `0x81000001` is never accessed from tests.
 - **Certs:** Tests generate short-lived test CA and device certs in `pytest.tmp_path`. The demo's `certs/` directory is never read or written by tests.
 - **Environment variables:** Test fixtures set their own `TPM2TOOLS_TCTI` and `TSS2_TCTI` values scoped to the test process. They do not read or depend on the demo's exported env vars.
+- **TLS verification in integration tests:** `requests` calls use `verify=path/to/test-ca.crt` (the test CA cert generated in `pytest.tmp_path`). The system trust store is never modified.
 
 ### Test Dependencies
 
