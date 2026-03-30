@@ -115,8 +115,8 @@ stateDiagram-v2
 | `provision.py` | Server | State machine entry point. Sequences INIT → AP_MODE → PROVISIONED → CONNECTING → ONLINE. Manages process lifecycle (swtpm, hostapd, dnsmasq, Flask). | AD-1, AD-6 |
 | `server.py` | Server | Flask HTTPS app. Two routes: `GET /` serves credential form; `POST /provision` validates and returns credentials to orchestrator. Sets HSTS response header. Shuts down after successful POST. | AD-3, AD-4, AD-7 |
 | `wifi.py` | Server | Wraps `hostapd`, `dnsmasq`, and `nmcli` subprocess calls. Owns the SoftAP bring-up/tear-down sequence and the final station connect. | AD-1, AD-3 |
-| `hostapd` | System daemon | Broadcasts the SoftAP SSID as an open AP (no PSK). Interface read from `PROVISION_IFACE` env var (default `wlan0`). Config in `device/hostapd.conf`. | AD-1 |
-| `dnsmasq` | System daemon | DHCP on SoftAP subnet + DNS resolution for `setup.teton-device.local → 192.168.4.1`. Interface read from `PROVISION_IFACE`. Config in `device/dnsmasq.conf`. | AD-3 |
+| `hostapd` | System daemon | Broadcasts the SoftAP SSID as an open AP (no PSK). Config written to a temp file by `provision.py` at startup from an inline template, substituting `PROVISION_IFACE`. | AD-1 |
+| `dnsmasq` | System daemon | DHCP on SoftAP subnet + DNS resolution for `setup.teton-device.local → 192.168.4.1`. Config written to a temp file by `provision.py` at startup from an inline template, substituting `PROVISION_IFACE`. | AD-3 |
 | `swtpm / TPM 2.0` | Hardware / daemon | Key storage at persistent handle `0x81000001`. Signs TLS handshake challenges. Private key generated inside the TPM at setup time — never exported. | AD-2, AD-5, AD-6 |
 | `setup.sh` | Script | One-time setup: starts swtpm, generates Teton demo CA, generates key in TPM, signs device CSR with demo CA, outputs `certs/device.crt` and `certs/teton-ca.crt`. Idempotent (wipes swtpm state before each run). | AD-2, AD-5, AD-6 |
 
