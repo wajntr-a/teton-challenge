@@ -112,8 +112,8 @@ stateDiagram-v2
 
 | Component | Type | Responsibility | Governing ADs |
 |---|---|---|---|
-| `provision.py` | Server | State machine entry point. Sequences INIT → AP_MODE → PROVISIONED → CONNECTING → ONLINE. Manages process lifecycle (swtpm, hostapd, dnsmasq, Flask). | AD-1, AD-6 |
-| `server.py` | Server | Flask HTTPS app. Two routes: `GET /` serves credential form; `POST /provision` validates and returns credentials to orchestrator. Sets HSTS response header. Shuts down after successful POST. | AD-3, AD-4, AD-7 |
+| `provision.py` | Server | State machine entry point. Sequences INIT → AP_MODE → PROVISIONED → CONNECTING → ONLINE. Manages process lifecycle (swtpm, hostapd, dnsmasq, Flask). Creates `threading.Event` and credentials dict; passes them to `server.py`; waits on event (10 min timeout → ERROR); calls `wifi.py` with credentials after event fires. | AD-1, AD-6 |
+| `server.py` | Server | Flask HTTPS app served via `werkzeug.serving.make_server()` in a thread. Two routes: `GET /` serves credential form; `POST /provision` validates credentials, stores them in shared dict, sets `threading.Event`, calls `server.shutdown()`, returns response. Sets HSTS response header. | AD-3, AD-4, AD-7 |
 | `wifi.py` | Server | Wraps `hostapd`, `dnsmasq`, and `nmcli` subprocess calls. Owns the SoftAP bring-up/tear-down sequence and the final station connect. | AD-1, AD-3 |
 | `hostapd` | System daemon | Broadcasts the SoftAP SSID as an open AP (no PSK). Config written to a temp file by `provision.py` at startup from an inline template, substituting `PROVISION_IFACE`. | AD-1 |
 | `dnsmasq` | System daemon | DHCP on SoftAP subnet + DNS resolution for `setup.teton-device.local → 192.168.4.1`. Config written to a temp file by `provision.py` at startup from an inline template, substituting `PROVISION_IFACE`. | AD-3 |
