@@ -355,7 +355,6 @@ No external logging infrastructure. Standalone embedded provisioning daemon.
 
 ## 11. Open Questions
 
-- [ ] Production deployment mechanism: systemd unit file (auto-start on boot) — deferred pending Pi deployment details
 - [ ] `CAP_NET_BIND_SERVICE` as alternative to full `root` for port 443 — deferred
 
 ---
