@@ -111,13 +111,14 @@ stateDiagram-v2
 
 | Component | Type | Responsibility | Governing ADs |
 |---|---|---|---|
-| `provision.py` | Server | State machine entry point. Sequences INIT → AP_MODE → PROVISIONED → CONNECTING → ONLINE. Manages process lifecycle (swtpm, hostapd, dnsmasq, Flask). Creates `threading.Event` and credentials dict; passes them to `server.py`; waits on event (10 min timeout → ERROR); calls `wifi.py` with credentials after event fires. | AD-1, AD-6 |
-| `server.py` | Server | Flask HTTPS app served via `werkzeug.serving.make_server()` in a thread. Two routes: `GET /` serves credential form; `POST /provision` validates credentials, stores them in shared dict, sets `threading.Event`, calls `server.shutdown()`, returns response. Sets HSTS response header. | AD-3, AD-4, AD-7 |
-| `wifi.py` | Server | Wraps `hostapd`, `dnsmasq`, and `nmcli` subprocess calls. Owns the SoftAP bring-up/tear-down sequence and the final station connect. | AD-1, AD-3 |
-| `hostapd` | System daemon | Broadcasts the SoftAP SSID as an open AP (no PSK). Config written to a temp file by `provision.py` at startup from an inline template, substituting `PROVISION_IFACE`. | AD-1 |
-| `dnsmasq` | System daemon | DHCP on SoftAP subnet + DNS resolution for `setup.teton-device.local → 192.168.4.1`. Config written to a temp file by `provision.py` at startup from an inline template, substituting `PROVISION_IFACE`. | AD-3 |
+| `provision.py` | Server | State machine entry point. Sequences INIT → AP_MODE → PROVISIONED → CONNECTING → ONLINE. Manages process lifecycle (swtpm, hostapd, dnsmasq, Flask). Constructs `ssl.SSLContext` (TPM key load via tpm2-openssl) once during INIT. Creates `threading.Event` and credentials dict; calls `server.create_server(credentials, event, ssl_context)` each time it enters AP_MODE (initial and retry); waits on event (10 min timeout → ERROR); calls `wifi.py` with credentials after event fires. swtpm is started once in INIT and expected to remain alive for the full provisioning session; if swtpm exits unexpectedly, provision.py transitions to terminal ERROR (no retry). On `ERROR → AP_MODE` retry (expected case: nmcli failure), the existing `ssl.SSLContext` is reused — no rebuild. | AD-1, AD-5, AD-6 |
+| `server.py` | Server | Flask HTTPS app served via `werkzeug.serving.make_server()` in a thread. Exposes `create_server(credentials, event, ssl_context)` factory — accepts the pre-built `ssl.SSLContext` from `provision.py`; returns a configured `werkzeug.serving.BaseWSGIServer` instance and a daemon `threading.Thread`. `GET /` serves credential form; `POST /provision` validates credentials, stores in shared dict, sets `threading.Event`, calls `werkzeug_server.shutdown()` (blocks until the in-flight request completes), returns response. `provision.py` joins the thread after the event fires before calling `create_server()` again on retry — ensuring port 443 is released before rebind. Sets HSTS response header. All HTML responses are inline multiline strings in `server.py` — no template engine, no `templates/` directory. `error_reason` is injected via f-string. | AD-3, AD-4, AD-7 |
+| `wifi.py` | Server | Wraps `hostapd`, `dnsmasq`, and `nmcli` subprocess calls. Owns the full SoftAP lifecycle: renders `hostapd.conf` and `dnsmasq.conf` inline templates to temp files (substituting `PROVISION_IFACE`), starts and stops daemons, and issues the final `nmcli` station connect. Exposes `start_ap(iface)`, `stop_ap()`, and `connect(ssid, password)`. `provision.py` calls `wifi.start_ap(iface)` — no config file paths cross the boundary. | AD-1, AD-3 |
+| `hostapd` | System daemon | Broadcasts the SoftAP SSID as an open AP (no PSK). Config written to a temp file by `wifi.py` at AP start from an inline template, substituting `PROVISION_IFACE`. | AD-1 |
+| `dnsmasq` | System daemon | DHCP on SoftAP subnet + DNS resolution for `setup.teton-device.local → 192.168.4.1`. Config written to a temp file by `wifi.py` at AP start from an inline template, substituting `PROVISION_IFACE`. | AD-3 |
 | `swtpm / TPM 2.0` | Hardware / daemon | Key storage at persistent handle `0x81000001`. Signs TLS handshake challenges. Private key generated inside the TPM at setup time — never exported. | AD-2, AD-5, AD-6 |
 | `setup.sh` | Script | One-time setup: starts swtpm, generates Teton demo CA, generates key in TPM, signs device CSR with demo CA, outputs `certs/device.crt` and `certs/teton-ca.crt`. Idempotent (wipes swtpm state before each run). | AD-2, AD-5, AD-6 |
+| `install-ca.sh` | Script | Ubuntu-only convenience script for the one-machine demo setup (device and browser on the same machine). Copies `certs/teton-ca.crt` to `/usr/local/share/ca-certificates/` and runs `update-ca-certificates` (covers Chrome). Runs `certutil -A` against `~/.mozilla/firefox/*.default-release/` if a Firefox profile exists. Requires `libnss3-tools`. Idempotent. Windows / macOS / iOS / Android: manual cert import — documented in README. | AD-2 |
 
 ---
 
@@ -202,13 +203,39 @@ graph LR
   NM -- "WPA2 station connect" --> AP
 ```
 
+### Project Layout
+
+```
+teton-challenge/
+├── device/                   # Source — NOT a Python package (no __init__.py)
+│   ├── provision.py          # State machine entry point
+│   ├── server.py             # Flask HTTPS server
+│   └── wifi.py               # SoftAP + nmcli subprocess wrapper
+├── scripts/
+│   ├── setup.sh              # One-time demo setup (swtpm + PKI)
+│   └── install-ca.sh         # Ubuntu-only CA install helper
+├── tests/
+│   ├── conftest.py           # Adds device/ to sys.path; non-swtpm shared fixtures
+│   ├── unit/
+│   │   ├── test_state_machine.py
+│   │   ├── test_validation.py
+│   │   └── test_wifi_commands.py
+│   └── integration/
+│       ├── conftest.py       # Self-contained swtpm lifecycle fixture
+│       └── test_server.py
+├── requirements.txt          # flask
+└── requirements-test.txt     # pytest, requests
+```
+
+`device/` is a scripts directory. Running `python3 device/provision.py` adds `device/` to `sys.path` automatically. For tests, root `tests/conftest.py` inserts `device/` into `sys.path` so that `import provision`, `import server`, `import wifi` resolve without package qualification. Mock patch strings use unqualified module names: `patch('wifi.subprocess.run')`, `patch('provision.ssl.SSLContext')`.
+
 ### Bare-Metal Requirements
 
 **Target platforms:** Ubuntu 22.04+, Raspberry Pi OS Bookworm (64-bit)
 
 **System packages (apt):**
 ```
-hostapd dnsmasq network-manager tpm2-tools tpm2-openssl swtpm python3 python3-pip openssl
+hostapd dnsmasq network-manager tpm2-tools tpm2-openssl swtpm python3 python3-pip openssl libnss3-tools
 ```
 
 **Python runtime packages (`requirements.txt`):**
@@ -243,7 +270,7 @@ Not applicable for this submission. Manual setup and run per README.
 
 ```
 tests/
-├── conftest.py               # Shared fixtures: swtpm lifecycle, temp cert dirs
+├── conftest.py               # Non-swtpm shared fixtures: temp cert dirs, cert generation helpers
 ├── unit/
 │   ├── test_state_machine.py
 │   ├── test_validation.py
@@ -271,6 +298,10 @@ Tracked separately from runtime dependencies. All test dependencies are listed i
 pytest
 requests
 ```
+
+**Unit test mock targets:**
+- `subprocess` calls in `wifi.py`: patch at usage module — `unittest.mock.patch('wifi.subprocess.run')` / `patch('wifi.subprocess.Popen')`
+- `ssl.SSLContext` construction in `provision.py`: non-obvious due to tpm2-openssl provider — patch via `unittest.mock.patch('provision.ssl.SSLContext')`
 
 ### What NOT to Test
 
@@ -369,7 +400,7 @@ No external logging infrastructure. Standalone embedded provisioning daemon.
 - Provisioning timeout env var name (default 10 min)
 - Cert validity periods in `setup.sh` (CA: 10 years, device cert: 1 year — suggested)
 - `certs/` is fully gitignored — all files generated by `setup.sh` at evaluation time; no pre-committed certs or keys
-- `install-ca.sh` platform detection logic (Ubuntu vs Pi OS vs macOS fallback)
+- `install-ca.sh` Firefox profile path glob (`*.default-release` vs `*.default` across distros)
 - systemd unit file for auto-start on boot — deferred pending Pi deployment details
 
 ---
