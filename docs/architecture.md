@@ -139,6 +139,20 @@ No persistent storage. All data is in-flight for the duration of one provisionin
 ProvisionState = { INIT, AP_MODE, PROVISIONED, CONNECTING, ONLINE, ERROR }
 ```
 
+**Credential flow** (in-memory, one provisioning session):
+
+```
+POST /provision → server.py validates → stored in shared dict {ssid, password}
+threading.Event set → provision.py unblocks → wifi.py.connect(ssid, password)
+nmcli exits → credentials discarded (dict goes out of scope)
+```
+
+**Error state payload:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `error_reason` | string | e.g. `"nmcli connect failed"`, `"timeout"` — logged and shown on error page |
+
 **TLS certificate chain** (in-memory during TLS handshake):
 
 ```
