@@ -56,7 +56,6 @@ C4Context
 | CA / cert tooling | OpenSSL CLI | 3.x | One-time setup script; signs device CSR with Teton demo CA |
 | Test framework | pytest | latest | Standard Python test runner |
 | Integration test HTTP | requests | latest | Issues HTTPS requests against Flask test server with custom CA |
-| E2E wireless simulation | mac80211_hwsim | kernel module | Full Linux wireless stack; 3 virtual radios; no physical hardware needed |
 
 ---
 
