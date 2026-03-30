@@ -225,7 +225,6 @@ Not applicable for this submission. Manual setup and run per README.
 |---|---|---|---|
 | Unit | State machine transitions, credential validation, subprocess argument construction, cert path verification | pytest, `unittest.mock` | All state transitions and all validation paths |
 | Integration | Flask server with real swtpm: TLS handshake, `GET /`, `POST /provision` with real cert chain | pytest, swtpm pytest fixture, `requests` with custom CA | Happy path + validation failures |
-| E2E | Full provisioning flow: SoftAP up → browser connect → credential POST → nmcli connect → ONLINE | pytest, `mac80211_hwsim`, `wpa_supplicant` | One complete happy path |
 
 ### Test Architecture
 
