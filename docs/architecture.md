@@ -428,20 +428,27 @@ Self-signed TLS provides encryption only. A rogue device with an identical SSID 
 **The DAC model:**
 
 ```
-At manufacture:
-  Device generates RSA key pair inside TPM (private key never leaves hardware)
-  Teton CA signs the device public key → Device Attestation Certificate (DAC)
-  DAC stored on device (public cert — not sensitive)
+Production:
+  At manufacture:
+    Device generates RSA key pair inside TPM (private key never leaves hardware)
+    Teton CA (HSM-backed) signs the device public key → Device Attestation Certificate (DAC)
+    DAC stored on device (public cert — not sensitive)
+  Before field deployment (internet available, one-time per configurator):
+    MDM pushes Teton CA cert to configurator → installed in browser trust store
 
-Before field deployment (internet available, one-time per configurator):
-  MDM pushes Teton CA cert to configurator → installed in browser trust store
+Demo (simulated by setup.sh on the evaluation machine):
+  Evaluator acts as Teton CA:
+    setup.sh generates teton-ca.key + teton-ca.crt (self-signed)
+    setup.sh generates TPM key in swtpm, signs device CSR → device.crt
+    Evaluator installs teton-ca.crt on their browser via install-ca.sh
+  Same machine or separate device acts as configurator
 
-At provisioning (no internet):
+At provisioning (no internet, identical in both models):
   TLS handshake:
     Device presents DAC (CN=setup.teton-device.local, signed by Teton CA)
     Browser verifies DAC chain against pre-installed Teton CA cert → valid
     TLS session established — encrypted + authenticated
-    Browser is certain it is communicating with a device Teton manufactured
+    Browser is certain it is communicating with a device whose cert Teton CA signed
   POST /provision:
     SSID + password transmitted inside the TLS session
     Any eavesdropper sees only ciphertext
