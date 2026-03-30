@@ -235,12 +235,9 @@ tests/
 │   ├── test_state_machine.py
 │   ├── test_validation.py
 │   └── test_wifi_commands.py
-├── integration/
-│   ├── conftest.py           # Flask test client + dedicated swtpm fixture
-│   └── test_server.py
-└── e2e/
-    ├── conftest.py           # mac80211_hwsim load/unload, virtual AP setup
-    └── test_provision_flow.py
+└── integration/
+    ├── conftest.py           # Flask test client + dedicated swtpm fixture
+    └── test_server.py
 ```
 
 ### Test Isolation
