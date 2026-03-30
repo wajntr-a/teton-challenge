@@ -258,18 +258,6 @@ pytest
 requests
 ```
 
-**E2E additional system packages (documented in README, requires root):**
-```
-linux-modules-extra-$(uname -r)   # provides mac80211_hwsim
-wpasupplicant
-iw
-```
-
-E2E tests must be run explicitly (`pytest tests/e2e/`) and require:
-- Root access
-- `modprobe mac80211_hwsim radios=3` loaded before the test session
-- NetworkManager not managing the virtual interfaces
-
 ### What NOT to Test
 
 - `hostapd`, `dnsmasq`, `nmcli` internal behavior — OS tools, not our code
