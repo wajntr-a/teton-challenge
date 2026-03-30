@@ -364,7 +364,8 @@ No external logging infrastructure. Standalone embedded provisioning daemon.
 
 ## 12. Deferred to Tickets
 
-- Exact `hostapd.conf` values: channel number, `hw_mode`, open AP or PSK, `ssid` format (how is the `Teton-Device-XXXX` suffix derived?)
+- Exact `hostapd.conf` values: channel number, `hw_mode`, `ssid` format (how is the `Teton-Device-XXXX` suffix derived?) — AP is open (no PSK)
+- `PROVISION_IFACE` env var: exact name TBD; read at startup by `provision.py`; default `wlan0`; applied to `hostapd.conf`, `dnsmasq.conf`, and `nmcli` calls
 - Exact `dnsmasq.conf` values: subnet range, lease time, interface binding
 - Exact `nmcli` command syntax: hidden vs visible SSID handling, error output parsing
 - E2E test: `mac80211_hwsim` load/unload as pytest fixture vs manual pre-condition
