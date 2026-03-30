@@ -3,14 +3,17 @@ TYPE: python
 CREATED: 2026-03-30
 REPO: http://localhost:3000/user/teton-challenge
 
-TECH_STACK: TBD
+TECH_STACK: Python 3, Flask, swtpm, tpm2-openssl, hostapd, dnsmasq, nmcli, OpenSSL CLI
 DEPLOYMENT: TBD
-CONVENTIONS: TBD
+CONVENTIONS: Conventional commits
 
 ITERATION: v1
-PHASE: idea
+PHASE: architecture
 STATE: in-progress
 UPDATED: 2026-03-30
 
 HISTORY:
 - 2026-03-30 | idea | in-progress | Project created
+- 2026-03-30 | idea | approved | Skipped — architecture decided externally
+- 2026-03-30 | spec | approved | Skipped — architecture decided externally
+- 2026-03-30 | architecture | in-progress | Phase entered
