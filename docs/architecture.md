@@ -357,7 +357,7 @@ No external logging infrastructure. Standalone embedded provisioning daemon.
 
 ## 11. Open Questions
 
-- [ ] Raspberry Pi network interface name: BCM43xx handles AP and station roles sequentially on `wlan0` — interface name needs verification on the target Pi revision
+- [ ] Production deployment mechanism: systemd unit file (auto-start on boot) — deferred pending Pi deployment details
 - [ ] Production deployment mechanism: systemd unit file (auto-start on boot) — deferred pending Pi deployment details
 - [ ] `CAP_NET_BIND_SERVICE` as alternative to full `root` for port 443 — deferred
 
