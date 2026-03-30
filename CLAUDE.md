@@ -15,7 +15,7 @@
 
 - NEVER skip from `in-progress` to `approved` — always go through `review`
 - NEVER advance phases without human approval
-- ALWAYS update STATUS with timestamp and history entry when changing state
+- ALWAYS update STATUS with timestamp and history entry when changing state — append new HISTORY entries at the end of the file, never insert mid-file
 - Set STATE to `review` when phase work is complete, then STOP and wait
 
 ## Key Priorities
