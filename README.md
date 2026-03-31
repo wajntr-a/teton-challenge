@@ -30,16 +30,28 @@ sudo apt-get install -y \
   swtpm tpm2-tools tpm2-abrmd \
   libtss2-dev tpm2-openssl \
   openssl \
-  python3 python3-pip \
+  python3 python3-pip python3-venv \
   hostapd dnsmasq network-manager \
   libnss3-tools
 ```
 
 **Python dependencies** — run on the **Device**:
 
+On **Ubuntu 22.04** (Python 3.10), pip installs system-wide directly:
+
 ```bash
 pip install -r requirements.txt
 ```
+
+On **Ubuntu 24.04** (Python 3.12+), the OS blocks system-wide pip installs (PEP 668). Use a virtual environment instead:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Re-activate the venv (`source .venv/bin/activate`) in any new terminal before running tests or `provision.py`.
 
 ### Configurator
 
