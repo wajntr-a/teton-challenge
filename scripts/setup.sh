@@ -147,7 +147,8 @@ fi
 echo "==> Flushing any existing TPM transient handles..."
 tpm2_getcap handles-transient 2>/dev/null \
   | grep -oE '0x[0-9a-fA-F]+' \
-  | xargs -r -I{} tpm2_flushcontext {}
+  | xargs -r -I{} tpm2_flushcontext {} \
+  || true
 
 echo "==> Creating primary key (owner hierarchy)..."
 tpm2_createprimary -C o -c /tmp/wajntraub-demo-primary.ctx
@@ -155,7 +156,8 @@ tpm2_createprimary -C o -c /tmp/wajntraub-demo-primary.ctx
 echo "==> Flushing transients before tpm2_create..."
 tpm2_getcap handles-transient 2>/dev/null \
   | grep -oE '0x[0-9a-fA-F]+' \
-  | xargs -r -I{} tpm2_flushcontext {}
+  | xargs -r -I{} tpm2_flushcontext {} \
+  || true
 
 echo "==> Creating RSA-2048 device key..."
 tpm2_create \
@@ -167,7 +169,8 @@ tpm2_create \
 echo "==> Flushing transients before tpm2_load..."
 tpm2_getcap handles-transient 2>/dev/null \
   | grep -oE '0x[0-9a-fA-F]+' \
-  | xargs -r -I{} tpm2_flushcontext {}
+  | xargs -r -I{} tpm2_flushcontext {} \
+  || true
 
 echo "==> Loading device key..."
 tpm2_load \
