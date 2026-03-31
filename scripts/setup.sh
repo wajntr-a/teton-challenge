@@ -123,11 +123,23 @@ swtpm socket \
   --flags startup-clear \
   --daemon
 
-sleep 0.5
-
 export TPM2TOOLS_TCTI="swtpm:path=$TPM_SOCK"
 export TSS2_TCTI="swtpm:path=$TPM_SOCK"
 export TPM2OPENSSL_TCTI="swtpm:path=$TPM_SOCK"
+
+echo "==> Waiting for swtpm to be ready..."
+_ready=0
+for _i in $(seq 1 20); do
+    if timeout 1 tpm2_getcap properties-fixed >/dev/null 2>&1; then
+        _ready=1
+        break
+    fi
+    sleep 0.3
+done
+if [ "$_ready" -eq 0 ]; then
+    echo "ERROR: swtpm did not become ready after 6 seconds"
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # 3. Generate RSA key in TPM and persist at handle 0x81000001
