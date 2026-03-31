@@ -13,6 +13,7 @@ the module boundary.
 
 import subprocess
 import tempfile
+import time
 
 # ---------------------------------------------------------------------------
 # Config templates
@@ -31,6 +32,7 @@ ignore_broadcast_ssid=0
 _DNSMASQ_CONF = """\
 interface={iface}
 bind-interfaces
+listen-address=192.168.4.1
 dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
 address=/setup.wajntraub-demo.local/192.168.4.1
 """
@@ -74,6 +76,13 @@ def start_ap(iface: str) -> None:
         _dnsmasq_conf_path = f.name
 
     _hostapd_proc = subprocess.Popen(['hostapd', _hostapd_conf_path])
+    # Wait briefly for hostapd to bring the interface up, then assign the
+    # gateway IP so dnsmasq can bind to it via listen-address=192.168.4.1
+    time.sleep(1)
+    subprocess.run(
+        ['ip', 'addr', 'add', '192.168.4.1/24', 'dev', iface],
+        check=False,  # ignore error if already assigned
+    )
     _dnsmasq_proc = subprocess.Popen(
         ['dnsmasq', '--no-daemon', '--conf-file', _dnsmasq_conf_path]
     )
