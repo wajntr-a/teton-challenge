@@ -116,16 +116,10 @@ Restart your browser after importing.
 
 **Firefox (any OS)** — Firefox maintains its own certificate store, separate from the OS. Even if you imported the CA into the OS store, Firefox requires a separate import:
 
-1. First, get the CA file onto the machine running Firefox. The easiest way is to serve it temporarily from the Device while connected to the SoftAP:
-   ```bash
-   # On the Device
-   python3 -m http.server 8080
-   ```
-   Then open `http://192.168.4.1:8080/certs/wajntraub-demo-ca.crt` in Firefox to download it.
-
+1. Copy `certs/wajntraub-demo-ca.crt` from the Device to the machine running Firefox.
 2. In Firefox: **Settings** → **Privacy & Security** → scroll to **Certificates** → **View Certificates**
 3. **Authorities** tab → **Import**
-4. Select the downloaded `wajntraub-demo-ca.crt`
+4. Select `wajntraub-demo-ca.crt`
 5. Check **Trust this CA to identify websites** → OK
 6. Restart Firefox
 
