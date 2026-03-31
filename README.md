@@ -96,15 +96,29 @@ Expected terminal output (happy path):
 
 ## Run tests
 
+**Unit tests only** (no hardware required, always works):
+
 ```bash
 pip install -r requirements-test.txt
+python3 -m pytest tests/unit/ -v
+```
+
+**Full suite including integration tests** — requires `tpm2-openssl` and OpenSSL 3. On Ubuntu 22.04 / Raspberry Pi OS Bookworm these are available natively:
+
+```bash
 python3 -m pytest tests/ -v
 ```
 
-Unit tests run without any hardware. Integration tests require `tpm2-openssl` to be installed and are skipped automatically if unavailable:
+**Full suite via Docker** — if `tpm2-openssl` is not installed on your machine (e.g. Debian 11, macOS), use the Docker runner instead. Requires Docker:
+
+```bash
+./scripts/docker-test.sh
+```
+
+This builds an Ubuntu 22.04 image on first run (cached afterwards) and executes the full suite inside it:
 
 ```
-37 passed, 11 skipped
+48 passed in ~30s
 ```
 
 ---
