@@ -9,6 +9,10 @@
 #
 # Idempotent: wipes previous swtpm state and regenerates all certs on each run.
 # Run as root (or with sudo) on Ubuntu 22.04+ or Raspberry Pi OS Bookworm.
+#
+# Usage:
+#   sudo ./scripts/setup.sh           # run setup
+#   sudo ./scripts/setup.sh --clean   # remove all generated artefacts
 
 set -euo pipefail
 
@@ -16,6 +20,39 @@ TPM_STATE_DIR="/tmp/tpm-state"
 TPM_SOCK="/tmp/tpm.sock"
 CERTS_DIR="$(dirname "$0")/../certs"
 CERTS_DIR="$(realpath "$CERTS_DIR")"
+
+# ---------------------------------------------------------------------------
+# --clean: remove all artefacts produced by this script and exit
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--clean" ]; then
+    echo "==> Stopping any swtpm using $TPM_SOCK..."
+    if [ -S "$TPM_SOCK" ]; then
+        fuser -k "$TPM_SOCK" 2>/dev/null || true
+        sleep 0.3
+    fi
+
+    echo "==> Removing swtpm state and sockets..."
+    rm -rf "$TPM_STATE_DIR" "$TPM_SOCK" "$TPM_SOCK.ctrl"
+
+    echo "==> Removing temporary TPM work files..."
+    rm -f /tmp/teton-primary.ctx \
+          /tmp/teton-device.pub \
+          /tmp/teton-device.priv \
+          /tmp/teton-device.ctx \
+          /tmp/teton-device.csr
+
+    echo "==> Removing generated certificates..."
+    rm -f "$CERTS_DIR/teton-ca.key" \
+          "$CERTS_DIR/teton-ca.crt" \
+          "$CERTS_DIR/teton-ca.srl" \
+          "$CERTS_DIR/device.key" \
+          "$CERTS_DIR/device.crt"
+    # Remove certs/ dir if now empty
+    rmdir "$CERTS_DIR" 2>/dev/null || true
+
+    echo "Clean complete."
+    exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Stop any swtpm using our socket and wipe state
