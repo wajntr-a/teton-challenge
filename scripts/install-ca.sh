@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# install-ca.sh — Install Teton demo CA on Ubuntu (Chrome + Firefox)
+# install-ca.sh — Install Wajntraub demo CA on Ubuntu (Chrome + Firefox)
 #
 # For the one-machine demo setup where the device and the configurator browser
-# run on the same Ubuntu machine. Installs certs/teton-ca.crt into:
+# run on the same Ubuntu machine. Installs certs/wajntraub-demo-ca.crt into:
 #   - The system trust store (picked up by Chrome/Chromium)
 #   - Firefox NSS profiles (via certutil)
 #
@@ -19,7 +19,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(dirname "$0")"
-CA_CERT="$(realpath "$SCRIPT_DIR/../certs/teton-ca.crt")"
+CA_CERT="$(realpath "$SCRIPT_DIR/../certs/wajntraub-demo-ca.crt")"
 
 # ---------------------------------------------------------------------------
 # Pre-flight checks
@@ -44,7 +44,7 @@ fi
 # System trust store (Chrome/Chromium picks this up)
 # ---------------------------------------------------------------------------
 echo "==> Installing CA cert to system trust store..."
-cp "$CA_CERT" /usr/local/share/ca-certificates/teton-ca.crt
+cp "$CA_CERT" /usr/local/share/ca-certificates/wajntraub-demo-ca.crt
 update-ca-certificates
 
 # ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ for profile_glob in \
   "/root/.mozilla/firefox/*.default"; do
   for profile in $profile_glob; do
     if [[ -d "$profile" ]]; then
-      certutil -A -n "Teton CA" -t "CT,," -i "$CA_CERT" -d "$profile"
+      certutil -A -n "Wajntraub Demo CA" -t "CT,," -i "$CA_CERT" -d "$profile"
       echo "  Installed in: $profile"
       INSTALLED=$((INSTALLED + 1))
     fi

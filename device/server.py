@@ -23,9 +23,9 @@ from werkzeug.serving import make_server
 _FORM_HTML = """\
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Teton Device Setup</title></head>
+<head><meta charset="utf-8"><title>Wajntraub Demo Setup</title></head>
 <body>
-  <h1>Teton Device Setup</h1>
+  <h1>Wajntraub Demo Setup</h1>
   <form method="POST" action="/provision">
     <label>Wi-Fi Network (SSID)
       <input type="text" name="ssid" required autofocus>

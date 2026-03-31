@@ -1,5 +1,5 @@
 """
-provision.py — Teton device provisioning state machine.
+provision.py — Wajntraub demo device provisioning state machine.
 
 Sequences:
   INIT → AP_MODE → PROVISIONED → CONNECTING → ONLINE

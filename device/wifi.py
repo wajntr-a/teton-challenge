@@ -21,7 +21,7 @@ import tempfile
 _HOSTAPD_CONF = """\
 interface={iface}
 driver=nl80211
-ssid=Teton-Device-0000
+ssid=Wajntraub-Demo-0000
 hw_mode=g
 channel=6
 auth_algs=1
@@ -32,7 +32,7 @@ _DNSMASQ_CONF = """\
 interface={iface}
 bind-interfaces
 dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
-address=/setup.teton-device.local/192.168.4.1
+address=/setup.wajntraub-demo.local/192.168.4.1
 """
 
 # ---------------------------------------------------------------------------
@@ -61,14 +61,14 @@ def start_ap(iface: str) -> None:
 
     # Write hostapd config
     with tempfile.NamedTemporaryFile(
-        mode='w', suffix='.conf', prefix='teton-hostapd-', delete=False
+        mode='w', suffix='.conf', prefix='wajntraub-hostapd-', delete=False
     ) as f:
         f.write(_HOSTAPD_CONF.format(iface=iface))
         _hostapd_conf_path = f.name
 
     # Write dnsmasq config
     with tempfile.NamedTemporaryFile(
-        mode='w', suffix='.conf', prefix='teton-dnsmasq-', delete=False
+        mode='w', suffix='.conf', prefix='wajntraub-dnsmasq-', delete=False
     ) as f:
         f.write(_DNSMASQ_CONF.format(iface=iface))
         _dnsmasq_conf_path = f.name

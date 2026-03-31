@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# setup.sh — Teton demo one-time setup
+# setup.sh — Wajntraub demo one-time setup
 #
-# Simulates the Teton manufacturing step on the evaluation machine:
+# Simulates the manufacturing step on the evaluation machine:
 #   1. Starts swtpm (software TPM 2.0)
-#   2. Generates the Teton demo CA (evaluator acts as Teton CA)
+#   2. Generates the Wajntraub demo CA (evaluator acts as demo CA)
 #   3. Generates an RSA key inside the TPM at persistent handle 0x81000001
 #   4. Creates a device CSR from the TPM key and signs it with the demo CA
 #
@@ -20,11 +20,55 @@ TPM_STATE_DIR="/tmp/tpm-state"
 TPM_SOCK="/tmp/tpm.sock"
 CERTS_DIR="$(dirname "$0")/../certs"
 CERTS_DIR="$(realpath "$CERTS_DIR")"
+DEMO_PREFIX="wajntraub-demo"
 
 # ---------------------------------------------------------------------------
 # --clean: remove all artefacts produced by this script and exit
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--clean" ]; then
+    # -----------------------------------------------------------------------
+    # List everything that will be removed, then ask for confirmation
+    # -----------------------------------------------------------------------
+    echo "The following artefacts will be removed:"
+    echo ""
+
+    _found=0
+    for f in \
+        "$TPM_STATE_DIR" \
+        "$TPM_SOCK" "$TPM_SOCK.ctrl" \
+        /tmp/wajntraub-demo-primary.ctx \
+        /tmp/wajntraub-demo-device.pub \
+        /tmp/wajntraub-demo-device.priv \
+        /tmp/wajntraub-demo-device.ctx \
+        /tmp/wajntraub-demo-device.csr \
+        "$CERTS_DIR/wajntraub-demo-ca.key" \
+        "$CERTS_DIR/wajntraub-demo-ca.crt" \
+        "$CERTS_DIR/wajntraub-demo-ca.srl" \
+        "$CERTS_DIR/device.key" \
+        "$CERTS_DIR/device.crt"
+    do
+        if [ -e "$f" ] || [ -S "$f" ]; then
+            echo "  $f"
+            _found=$((_found + 1))
+        fi
+    done
+
+    if [ "$_found" -eq 0 ]; then
+        echo "  (nothing to remove)"
+        echo ""
+        echo "Nothing to clean."
+        exit 0
+    fi
+
+    echo ""
+    printf "Proceed? [y/N] "
+    read -r _reply
+    if [ "$_reply" != "y" ] && [ "$_reply" != "Y" ]; then
+        echo "Aborted."
+        exit 0
+    fi
+
+    echo ""
     echo "==> Stopping any swtpm using $TPM_SOCK..."
     if [ -S "$TPM_SOCK" ]; then
         fuser -k "$TPM_SOCK" 2>/dev/null || true
@@ -35,16 +79,16 @@ if [ "${1:-}" = "--clean" ]; then
     rm -rf "$TPM_STATE_DIR" "$TPM_SOCK" "$TPM_SOCK.ctrl"
 
     echo "==> Removing temporary TPM work files..."
-    rm -f /tmp/teton-primary.ctx \
-          /tmp/teton-device.pub \
-          /tmp/teton-device.priv \
-          /tmp/teton-device.ctx \
-          /tmp/teton-device.csr
+    rm -f /tmp/wajntraub-demo-primary.ctx \
+          /tmp/wajntraub-demo-device.pub \
+          /tmp/wajntraub-demo-device.priv \
+          /tmp/wajntraub-demo-device.ctx \
+          /tmp/wajntraub-demo-device.csr
 
     echo "==> Removing generated certificates..."
-    rm -f "$CERTS_DIR/teton-ca.key" \
-          "$CERTS_DIR/teton-ca.crt" \
-          "$CERTS_DIR/teton-ca.srl" \
+    rm -f "$CERTS_DIR/wajntraub-demo-ca.key" \
+          "$CERTS_DIR/wajntraub-demo-ca.crt" \
+          "$CERTS_DIR/wajntraub-demo-ca.srl" \
           "$CERTS_DIR/device.key" \
           "$CERTS_DIR/device.crt"
     # Remove certs/ dir if now empty
@@ -89,37 +133,37 @@ export TPM2OPENSSL_TCTI="swtpm:path=$TPM_SOCK"
 # 3. Generate RSA key in TPM and persist at handle 0x81000001
 # ---------------------------------------------------------------------------
 echo "==> Creating primary key (owner hierarchy)..."
-tpm2_createprimary -C o -c /tmp/teton-primary.ctx
+tpm2_createprimary -C o -c /tmp/wajntraub-demo-primary.ctx
 
 echo "==> Creating RSA-2048 device key..."
 tpm2_create \
-  -C /tmp/teton-primary.ctx \
+  -C /tmp/wajntraub-demo-primary.ctx \
   -G rsa2048 \
-  -u /tmp/teton-device.pub \
-  -r /tmp/teton-device.priv
+  -u /tmp/wajntraub-demo-device.pub \
+  -r /tmp/wajntraub-demo-device.priv
 
 echo "==> Loading device key..."
 tpm2_load \
-  -C /tmp/teton-primary.ctx \
-  -u /tmp/teton-device.pub \
-  -r /tmp/teton-device.priv \
-  -c /tmp/teton-device.ctx
+  -C /tmp/wajntraub-demo-primary.ctx \
+  -u /tmp/wajntraub-demo-device.pub \
+  -r /tmp/wajntraub-demo-device.priv \
+  -c /tmp/wajntraub-demo-device.ctx
 
 echo "==> Persisting device key at handle 0x81000001..."
 # Evict existing key at that handle if present
 tpm2_evictcontrol -C o -c 0x81000001 2>/dev/null || true
-tpm2_evictcontrol -C o -c /tmp/teton-device.ctx 0x81000001
+tpm2_evictcontrol -C o -c /tmp/wajntraub-demo-device.ctx 0x81000001
 
 # ---------------------------------------------------------------------------
-# 4. Generate Teton demo CA
+# 4. Generate Wajntraub demo CA
 # ---------------------------------------------------------------------------
-echo "==> Generating Teton demo CA..."
+echo "==> Generating Wajntraub demo CA..."
 mkdir -p "$CERTS_DIR"
 openssl req -x509 -newkey rsa:4096 \
-  -keyout "$CERTS_DIR/teton-ca.key" \
-  -out    "$CERTS_DIR/teton-ca.crt" \
+  -keyout "$CERTS_DIR/wajntraub-demo-ca.key" \
+  -out    "$CERTS_DIR/wajntraub-demo-ca.crt" \
   -days 3650 -nodes \
-  -subj "/CN=Teton Demo CA/O=Teton AI"
+  -subj "/CN=Wajntraub Demo CA/O=Wajntraub Demo"
 
 # ---------------------------------------------------------------------------
 # 5. Generate software device key and create CSR
@@ -141,34 +185,34 @@ openssl genrsa -out "$CERTS_DIR/device.key" 2048
 echo "==> Creating device CSR..."
 openssl req -new \
   -key "$CERTS_DIR/device.key" \
-  -subj "/CN=setup.teton-device.local" \
-  -out /tmp/teton-device.csr
+  -subj "/CN=setup.wajntraub-demo.local" \
+  -out /tmp/wajntraub-demo-device.csr
 
 # ---------------------------------------------------------------------------
 # 6. Sign device CSR with demo CA (add SAN — required by modern browsers)
 # ---------------------------------------------------------------------------
-echo "==> Signing device CSR with Teton demo CA..."
+echo "==> Signing device CSR with Wajntraub demo CA..."
 openssl x509 -req \
-  -in /tmp/teton-device.csr \
-  -CA    "$CERTS_DIR/teton-ca.crt" \
-  -CAkey "$CERTS_DIR/teton-ca.key" \
+  -in /tmp/wajntraub-demo-device.csr \
+  -CA    "$CERTS_DIR/wajntraub-demo-ca.crt" \
+  -CAkey "$CERTS_DIR/wajntraub-demo-ca.key" \
   -CAcreateserial \
   -out "$CERTS_DIR/device.crt" \
   -days 365 -sha256 \
-  -extfile <(printf "subjectAltName=DNS:setup.teton-device.local\n")
+  -extfile <(printf "subjectAltName=DNS:setup.wajntraub-demo.local\n")
 
 # ---------------------------------------------------------------------------
 # 7. Verify
 # ---------------------------------------------------------------------------
 echo ""
 echo "==> Verifying cert chain..."
-openssl verify -CAfile "$CERTS_DIR/teton-ca.crt" "$CERTS_DIR/device.crt"
+openssl verify -CAfile "$CERTS_DIR/wajntraub-demo-ca.crt" "$CERTS_DIR/device.crt"
 
 echo ""
 echo "Setup complete."
 echo "  swtpm socket: $TPM_SOCK"
 echo "  TPM handle:   0x81000001 (identity key — never exported)"
-echo "  CA cert:      $CERTS_DIR/teton-ca.crt"
+echo "  CA cert:      $CERTS_DIR/wajntraub-demo-ca.crt"
 echo "  Device cert:  $CERTS_DIR/device.crt"
 echo "  Device key:   $CERTS_DIR/device.key  (software key for TLS)"
 echo ""

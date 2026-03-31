@@ -54,7 +54,7 @@ def test_ca(tmp_path):
 def test_device_cert(tmp_path, test_ca):
     """
     Generate a test device cert signed by test_ca in tmp_path.
-    CN=setup.teton-device.local with SAN extension.
+    CN=setup.wajntraub-demo.local with SAN extension.
     Returns {"cert": Path, "key": Path}.
     """
     key = tmp_path / "device.key"
@@ -62,7 +62,7 @@ def test_device_cert(tmp_path, test_ca):
     cert = tmp_path / "device.crt"
     ext = tmp_path / "san.ext"
 
-    ext.write_text("subjectAltName=DNS:setup.teton-device.local\n")
+    ext.write_text("subjectAltName=DNS:setup.wajntraub-demo.local\n")
 
     subprocess.run(
         ["openssl", "genrsa", "-out", str(key), "2048"],
@@ -74,7 +74,7 @@ def test_device_cert(tmp_path, test_ca):
             "openssl", "req", "-new",
             "-key", str(key),
             "-out", str(csr),
-            "-subj", "/CN=setup.teton-device.local",
+            "-subj", "/CN=setup.wajntraub-demo.local",
         ],
         check=True,
         capture_output=True,

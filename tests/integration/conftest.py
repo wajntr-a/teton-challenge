@@ -151,7 +151,7 @@ def swtpm_context(tmp_path):
         device_csr  = tmp_path / "device.csr"
         device_cert = tmp_path / "device.crt"
         san_ext     = tmp_path / "san.ext"
-        san_ext.write_text("subjectAltName=DNS:setup.teton-device.local,IP:127.0.0.1\n")
+        san_ext.write_text("subjectAltName=DNS:setup.wajntraub-demo.local,IP:127.0.0.1\n")
 
         _run([
             "openssl", "genrsa",
@@ -160,7 +160,7 @@ def swtpm_context(tmp_path):
         _run([
             "openssl", "req", "-new",
             "-key", str(device_key),
-            "-subj", "/CN=setup.teton-device.local",
+            "-subj", "/CN=setup.wajntraub-demo.local",
             "-out", str(device_csr),
         ])
         _run([
