@@ -85,13 +85,25 @@ openssl req -x509 -newkey rsa:4096 \
   -subj "/CN=Teton Demo CA/O=Teton AI"
 
 # ---------------------------------------------------------------------------
-# 5. Create device CSR using the TPM key (via tpm2-openssl provider)
+# 5. Generate software device key and create CSR
+#
+# NOTE: Python's ssl.SSLContext.load_cert_chain() calls OpenSSL's
+# SSL_CTX_use_PrivateKey_file() which uses fopen() and cannot resolve TPM
+# store URIs like "handle:0x81000001". The tpm2-openssl provider hooks into
+# OpenSSL's OSSL_STORE API, which Python's stdlib ssl module never invokes.
+#
+# The production fix is tpm2-pkcs11 (PKCS#11 engine over TPM2), which IS
+# reachable from Python ssl. For this demo, we use a software RSA key for
+# TLS termination. The TPM key at 0x81000001 is still generated and
+# persisted above — demonstrating the manufacturing provisioning step —
+# but TLS uses this software key.
 # ---------------------------------------------------------------------------
-echo "==> Creating device CSR using TPM key (tpm2-openssl provider)..."
-openssl req \
-  -provider tpm2 -provider default \
-  -new \
-  -key "handle:0x81000001" \
+echo "==> Generating software device key for TLS..."
+openssl genrsa -out "$CERTS_DIR/device.key" 2048
+
+echo "==> Creating device CSR..."
+openssl req -new \
+  -key "$CERTS_DIR/device.key" \
   -subj "/CN=setup.teton-device.local" \
   -out /tmp/teton-device.csr
 
@@ -118,8 +130,11 @@ openssl verify -CAfile "$CERTS_DIR/teton-ca.crt" "$CERTS_DIR/device.crt"
 echo ""
 echo "Setup complete."
 echo "  swtpm socket: $TPM_SOCK"
-echo "  TPM handle:   0x81000001 (private key never exported)"
+echo "  TPM handle:   0x81000001 (identity key — never exported)"
 echo "  CA cert:      $CERTS_DIR/teton-ca.crt"
 echo "  Device cert:  $CERTS_DIR/device.crt"
+echo "  Device key:   $CERTS_DIR/device.key  (software key for TLS)"
+echo ""
+echo "  NOTE: TLS uses a software key. Production would use tpm2-pkcs11."
 echo ""
 echo "Next: sudo ./scripts/install-ca.sh"
