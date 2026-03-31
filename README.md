@@ -107,12 +107,29 @@ This copies `certs/wajntraub-demo-ca.crt` into `/usr/local/share/ca-certificates
 
 | OS | Steps |
 |---|---|
-| Windows | `certmgr.msc` → Trusted Root Certification Authorities → Import |
+| Windows (Chrome) | `certmgr.msc` → Trusted Root Certification Authorities → Import |
 | macOS | Keychain Access → System → File → Import Items → set Trust to "Always Trust" |
 | iOS | AirDrop or email the `.crt` file → Settings → General → VPN & Device Management → Install Profile → trust it |
 | Android | Settings → Security → Install from storage → CA certificate |
 
 Restart your browser after importing.
+
+**Firefox (any OS)** — Firefox maintains its own certificate store, separate from the OS. Even if you imported the CA into the OS store, Firefox requires a separate import:
+
+1. First, get the CA file onto the machine running Firefox. The easiest way is to serve it temporarily from the Device while connected to the SoftAP:
+   ```bash
+   # On the Device
+   python3 -m http.server 8080
+   ```
+   Then open `http://192.168.4.1:8080/certs/wajntraub-demo-ca.crt` in Firefox to download it.
+
+2. In Firefox: **Settings** → **Privacy & Security** → scroll to **Certificates** → **View Certificates**
+3. **Authorities** tab → **Import**
+4. Select the downloaded `wajntraub-demo-ca.crt`
+5. Check **Trust this CA to identify websites** → OK
+6. Restart Firefox
+
+> If you run `setup.sh` again, a new CA is generated. You must re-download and re-import — the name "Wajntraub Demo CA" will be the same but the key will differ, causing `SEC_ERROR_UNKNOWN_ISSUER`. Delete the old entry in the Authorities tab before importing the new one.
 
 ---
 
