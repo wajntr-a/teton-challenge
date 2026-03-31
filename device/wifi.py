@@ -59,6 +59,12 @@ def start_ap(iface: str) -> None:
     """
     global _hostapd_proc, _dnsmasq_proc, _hostapd_conf_path
 
+    # Clean up any leftover state from a previous crashed run
+    subprocess.run(['pkill', '-f', 'hostapd'], check=False)
+    subprocess.run(['pkill', '-f', 'dnsmasq'], check=False)
+    subprocess.run(['ip', 'addr', 'del', '192.168.4.1/24', 'dev', iface], check=False)
+    time.sleep(0.3)
+
     # Write hostapd config
     with tempfile.NamedTemporaryFile(
         mode='w', suffix='.conf', prefix='wajntraub-hostapd-', delete=False
@@ -80,7 +86,7 @@ def start_ap(iface: str) -> None:
 
 
 def stop_ap() -> None:
-    """Terminate hostapd and dnsmasq if running."""
+    """Terminate hostapd and dnsmasq, and remove the gateway IP from the interface."""
     global _hostapd_proc, _dnsmasq_proc
 
     if _hostapd_proc is not None:
@@ -90,6 +96,21 @@ def stop_ap() -> None:
     if _dnsmasq_proc is not None:
         _dnsmasq_proc.terminate()
         _dnsmasq_proc = None
+
+    if _hostapd_conf_path is not None:
+        # Derive interface from the conf file and remove the gateway IP
+        try:
+            conf = open(_hostapd_conf_path).read()
+            for line in conf.splitlines():
+                if line.startswith('interface='):
+                    iface = line.split('=', 1)[1].strip()
+                    subprocess.run(
+                        ['ip', 'addr', 'del', '192.168.4.1/24', 'dev', iface],
+                        check=False,
+                    )
+                    break
+        except OSError:
+            pass
 
 
 def connect(ssid: str, password: str) -> None:
