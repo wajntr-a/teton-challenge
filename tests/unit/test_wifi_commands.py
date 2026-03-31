@@ -21,7 +21,6 @@ def reset_wifi_state():
     wifi._hostapd_proc = None
     wifi._dnsmasq_proc = None
     wifi._hostapd_conf_path = None
-    wifi._dnsmasq_conf_path = None
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +29,9 @@ def reset_wifi_state():
 
 class TestStartAp:
     def test_calls_hostapd(self):
-        with patch('wifi.subprocess.Popen') as mock_popen:
+        with patch('wifi.subprocess.Popen') as mock_popen, \
+             patch('wifi.subprocess.run'), \
+             patch('wifi.time.sleep'):
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan0')
 
@@ -39,7 +40,9 @@ class TestStartAp:
                 "hostapd was not invoked"
 
     def test_calls_dnsmasq(self):
-        with patch('wifi.subprocess.Popen') as mock_popen:
+        with patch('wifi.subprocess.Popen') as mock_popen, \
+             patch('wifi.subprocess.run'), \
+             patch('wifi.time.sleep'):
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan0')
 
@@ -48,48 +51,53 @@ class TestStartAp:
                 "dnsmasq was not invoked"
 
     def test_hostapd_receives_conf_file(self):
-        with patch('wifi.subprocess.Popen') as mock_popen:
+        with patch('wifi.subprocess.Popen') as mock_popen, \
+             patch('wifi.subprocess.run'), \
+             patch('wifi.time.sleep'):
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan0')
 
             commands = [c[0][0] for c in mock_popen.call_args_list]
             hostapd_cmd = next(c for c in commands if c[0] == 'hostapd')
-            # Second argument must be a file path (not empty, not the binary name)
             assert len(hostapd_cmd) >= 2
             assert hostapd_cmd[1].endswith('.conf')
 
-    def test_dnsmasq_receives_conf_file(self):
-        with patch('wifi.subprocess.Popen') as mock_popen:
+    def test_dnsmasq_receives_interface_arg(self):
+        with patch('wifi.subprocess.Popen') as mock_popen, \
+             patch('wifi.subprocess.run'), \
+             patch('wifi.time.sleep'):
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan0')
 
             commands = [c[0][0] for c in mock_popen.call_args_list]
             dnsmasq_cmd = next(c for c in commands if c[0] == 'dnsmasq')
-            conf_args = [a for a in dnsmasq_cmd if a.endswith('.conf')]
-            assert conf_args, "dnsmasq not called with a .conf file path"
+            assert any('--interface=wlan0' in a for a in dnsmasq_cmd), \
+                "dnsmasq not called with --interface=wlan0"
 
     def test_interface_substituted_in_hostapd_conf(self):
-        with patch('wifi.subprocess.Popen') as mock_popen:
+        with patch('wifi.subprocess.Popen') as mock_popen, \
+             patch('wifi.subprocess.run'), \
+             patch('wifi.time.sleep'):
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan1')
 
-            # The conf file is written to disk even though Popen is mocked
             conf_path = wifi._hostapd_conf_path
             assert conf_path is not None
             content = Path(conf_path).read_text()
             assert 'wlan1' in content, \
                 f"PROVISION_IFACE 'wlan1' not found in hostapd.conf:\n{content}"
 
-    def test_interface_substituted_in_dnsmasq_conf(self):
-        with patch('wifi.subprocess.Popen') as mock_popen:
+    def test_interface_substituted_in_dnsmasq_args(self):
+        with patch('wifi.subprocess.Popen') as mock_popen, \
+             patch('wifi.subprocess.run'), \
+             patch('wifi.time.sleep'):
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan1')
 
-            conf_path = wifi._dnsmasq_conf_path
-            assert conf_path is not None
-            content = Path(conf_path).read_text()
-            assert 'wlan1' in content, \
-                f"PROVISION_IFACE 'wlan1' not found in dnsmasq.conf:\n{content}"
+            commands = [c[0][0] for c in mock_popen.call_args_list]
+            dnsmasq_cmd = next(c for c in commands if c[0] == 'dnsmasq')
+            assert any('wlan1' in a for a in dnsmasq_cmd), \
+                f"PROVISION_IFACE 'wlan1' not found in dnsmasq args: {dnsmasq_cmd}"
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +106,9 @@ class TestStartAp:
 
 class TestStopAp:
     def test_terminates_hostapd_process(self):
-        with patch('wifi.subprocess.Popen') as mock_popen:
+        with patch('wifi.subprocess.Popen') as mock_popen, \
+             patch('wifi.subprocess.run'), \
+             patch('wifi.time.sleep'):
             mock_proc = MagicMock()
             mock_popen.return_value = mock_proc
             wifi.start_ap('wlan0')
@@ -107,13 +117,14 @@ class TestStopAp:
         mock_proc.terminate.assert_called()
 
     def test_terminates_dnsmasq_process(self):
-        with patch('wifi.subprocess.Popen') as mock_popen:
+        with patch('wifi.subprocess.Popen') as mock_popen, \
+             patch('wifi.subprocess.run'), \
+             patch('wifi.time.sleep'):
             procs = [MagicMock(), MagicMock()]
             mock_popen.side_effect = procs
             wifi.start_ap('wlan0')
 
         wifi.stop_ap()
-        # Both procs should have been terminated
         for proc in procs:
             proc.terminate.assert_called()
 
@@ -129,12 +140,13 @@ class TestStopAp:
 class TestConnect:
     def test_nmcli_receives_correct_args(self):
         with patch('wifi.subprocess.Popen') as mock_popen, \
-             patch('wifi.subprocess.run') as mock_run:
+             patch('wifi.subprocess.run') as mock_run, \
+             patch('wifi.time.sleep'):
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan0')
             wifi.connect('MyNet', 'secret')
 
-        mock_run.assert_called_once_with(
+        mock_run.assert_called_with(
             ['nmcli', 'device', 'wifi', 'connect', 'MyNet', 'password', 'secret'],
             check=True,
         )
@@ -142,7 +154,8 @@ class TestConnect:
     def test_args_are_list_not_shell_string(self):
         """Credentials must be passed as discrete list args (no shell=True)."""
         with patch('wifi.subprocess.Popen') as mock_popen, \
-             patch('wifi.subprocess.run') as mock_run:
+             patch('wifi.subprocess.run') as mock_run, \
+             patch('wifi.time.sleep'):
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan0')
             wifi.connect('Net with spaces', 'p@$$w0rd!')
@@ -159,10 +172,16 @@ class TestConnect:
         call_order = []
 
         with patch('wifi.subprocess.Popen') as mock_popen, \
-             patch('wifi.subprocess.run') as mock_run:
+             patch('wifi.subprocess.run') as mock_run, \
+             patch('wifi.time.sleep'):
             mock_proc = MagicMock()
             mock_proc.terminate.side_effect = lambda: call_order.append('terminate')
-            mock_run.side_effect = lambda *a, **kw: call_order.append('nmcli')
+
+            def track_run(cmd, **kw):
+                if cmd[0] == 'nmcli':
+                    call_order.append('nmcli')
+
+            mock_run.side_effect = track_run
             mock_popen.return_value = mock_proc
 
             wifi.start_ap('wlan0')

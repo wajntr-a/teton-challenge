@@ -2,9 +2,9 @@
 wifi.py — SoftAP lifecycle and nmcli station connect.
 
 Owns the full SoftAP lifecycle:
-  - Renders hostapd.conf and dnsmasq.conf inline templates to temp files
-    (substituting PROVISION_IFACE).
-  - Starts and stops hostapd and dnsmasq daemons.
+  - Writes hostapd.conf to a temp file and starts hostapd.
+  - Assigns the gateway IP (192.168.4.1) to the interface.
+  - Starts dnsmasq via command-line arguments (no conf file).
   - Issues the final nmcli station connect.
 
 provision.py calls start_ap(iface) only — no config file paths cross
@@ -29,13 +29,12 @@ auth_algs=1
 ignore_broadcast_ssid=0
 """
 
-_DNSMASQ_CONF = """\
-interface={iface}
-bind-interfaces
-listen-address=192.168.4.1
-dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
-address=/setup.wajntraub-demo.local/192.168.4.1
-"""
+_DNSMASQ_BASE_ARGS = [
+    'dnsmasq', '--no-daemon',
+    '--bind-interfaces',
+    '--dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h',
+    '--address=/setup.wajntraub-demo.local/192.168.4.1',
+]
 
 # ---------------------------------------------------------------------------
 # Module state — one AP session at a time
@@ -44,7 +43,6 @@ address=/setup.wajntraub-demo.local/192.168.4.1
 _hostapd_proc = None
 _dnsmasq_proc = None
 _hostapd_conf_path = None
-_dnsmasq_conf_path = None
 
 
 # ---------------------------------------------------------------------------
@@ -53,13 +51,13 @@ _dnsmasq_conf_path = None
 
 def start_ap(iface: str) -> None:
     """
-    Write hostapd and dnsmasq configs for *iface* and start both daemons.
+    Start hostapd and dnsmasq for *iface*, assigning 192.168.4.1 as gateway.
 
-    Config files are written to temporary files in /tmp. The file paths are
-    stored in module globals (_hostapd_conf_path, _dnsmasq_conf_path) for
-    inspection by tests.
+    The hostapd config is written to a temp file. dnsmasq is started with
+    command-line arguments directly to avoid conf-file parsing issues with
+    systemd-resolved holding port 53.
     """
-    global _hostapd_proc, _dnsmasq_proc, _hostapd_conf_path, _dnsmasq_conf_path
+    global _hostapd_proc, _dnsmasq_proc, _hostapd_conf_path
 
     # Write hostapd config
     with tempfile.NamedTemporaryFile(
@@ -68,23 +66,16 @@ def start_ap(iface: str) -> None:
         f.write(_HOSTAPD_CONF.format(iface=iface))
         _hostapd_conf_path = f.name
 
-    # Write dnsmasq config
-    with tempfile.NamedTemporaryFile(
-        mode='w', suffix='.conf', prefix='wajntraub-dnsmasq-', delete=False
-    ) as f:
-        f.write(_DNSMASQ_CONF.format(iface=iface))
-        _dnsmasq_conf_path = f.name
-
     _hostapd_proc = subprocess.Popen(['hostapd', _hostapd_conf_path])
     # Wait briefly for hostapd to bring the interface up, then assign the
-    # gateway IP so dnsmasq can bind to it via listen-address=192.168.4.1
+    # gateway IP before starting dnsmasq
     time.sleep(1)
     subprocess.run(
         ['ip', 'addr', 'add', '192.168.4.1/24', 'dev', iface],
         check=False,  # ignore error if already assigned
     )
     _dnsmasq_proc = subprocess.Popen(
-        ['dnsmasq', '--no-daemon', '--conf-file', _dnsmasq_conf_path]
+        _DNSMASQ_BASE_ARGS + [f'--interface={iface}']
     )
 
 
