@@ -18,11 +18,13 @@ CERTS_DIR="$(dirname "$0")/../certs"
 CERTS_DIR="$(realpath "$CERTS_DIR")"
 
 # ---------------------------------------------------------------------------
-# 1. Stop any running swtpm and wipe state
+# 1. Stop any swtpm using our socket and wipe state
 # ---------------------------------------------------------------------------
-echo "==> Stopping any running swtpm..."
-pkill -x swtpm 2>/dev/null || true
-sleep 0.3
+echo "==> Stopping any swtpm using $TPM_SOCK..."
+if [ -S "$TPM_SOCK" ]; then
+    fuser -k "$TPM_SOCK" 2>/dev/null || true
+    sleep 0.3
+fi
 
 echo "==> Wiping previous swtpm state..."
 rm -rf "$TPM_STATE_DIR" "$TPM_SOCK"
