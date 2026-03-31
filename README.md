@@ -75,6 +75,12 @@ What it does:
 - Generates `certs/wajntraub-demo-ca.crt` (demo CA) and `certs/device.crt` (device certificate)
 - Verifies the cert chain with `openssl verify`
 
+**Multiple devices** — each device needs its own `device.key` and `device.crt`, but they can all share the same CA. To issue a new device cert without regenerating the CA (no browser re-import needed):
+
+```bash
+sudo ./scripts/setup.sh --new-device-cert
+```
+
 **Cleaning up** — to remove all artefacts created by setup (TPM state, sockets, generated keys and certificates):
 
 ```bash

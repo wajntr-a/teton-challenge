@@ -11,8 +11,9 @@
 # Run as root (or with sudo) on Ubuntu 22.04+ or Raspberry Pi OS Bookworm.
 #
 # Usage:
-#   sudo ./scripts/setup.sh           # run setup
-#   sudo ./scripts/setup.sh --clean   # remove all generated artefacts
+#   sudo ./scripts/setup.sh                  # full setup (new CA + new device cert)
+#   sudo ./scripts/setup.sh --new-device-cert  # new device cert only, reuse existing CA
+#   sudo ./scripts/setup.sh --clean          # remove all generated artefacts
 
 set -euo pipefail
 
@@ -21,6 +22,45 @@ TPM_SOCK="/tmp/tpm.sock"
 CERTS_DIR="$(dirname "$0")/../certs"
 CERTS_DIR="$(realpath "$CERTS_DIR")"
 DEMO_PREFIX="wajntraub-demo"
+
+# ---------------------------------------------------------------------------
+# --new-device-cert: reuse existing CA, generate new device key + cert only
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--new-device-cert" ]; then
+    if [ ! -f "$CERTS_DIR/wajntraub-demo-ca.key" ] || [ ! -f "$CERTS_DIR/wajntraub-demo-ca.crt" ]; then
+        echo "ERROR: CA not found in $CERTS_DIR — run setup.sh without arguments first."
+        exit 1
+    fi
+
+    echo "==> Generating new software device key..."
+    openssl genrsa -out "$CERTS_DIR/device.key" 2048
+
+    echo "==> Creating device CSR..."
+    openssl req -new \
+      -key "$CERTS_DIR/device.key" \
+      -subj "/CN=setup.wajntraub-demo.local" \
+      -out /tmp/wajntraub-demo-device.csr
+
+    echo "==> Signing device CSR with existing Wajntraub demo CA..."
+    openssl x509 -req \
+      -in /tmp/wajntraub-demo-device.csr \
+      -CA    "$CERTS_DIR/wajntraub-demo-ca.crt" \
+      -CAkey "$CERTS_DIR/wajntraub-demo-ca.key" \
+      -CAcreateserial \
+      -out "$CERTS_DIR/device.crt" \
+      -days 365 -sha256 \
+      -extfile <(printf "subjectAltName=DNS:setup.wajntraub-demo.local\n")
+
+    echo "==> Verifying cert chain..."
+    openssl verify -CAfile "$CERTS_DIR/wajntraub-demo-ca.crt" "$CERTS_DIR/device.crt"
+
+    echo ""
+    echo "New device cert generated."
+    echo "  Device cert: $CERTS_DIR/device.crt"
+    echo "  Device key:  $CERTS_DIR/device.key"
+    echo "  CA cert:     $CERTS_DIR/wajntraub-demo-ca.crt  (unchanged — no browser re-import needed)"
+    exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # --clean: remove all artefacts produced by this script and exit
