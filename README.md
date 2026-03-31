@@ -139,10 +139,10 @@ sudo PROVISION_IFACE=<your-interface> python3 device/provision.py
 If you used a virtual environment (Ubuntu 24.04):
 
 ```bash
-sudo PROVISION_IFACE=<your-interface> /absolute/path/to/project/.venv/bin/python3 device/provision.py
+sudo PROVISION_IFACE=<your-interface> .venv/bin/python3 device/provision.py
 ```
 
-> `sudo` strips environment variables, so `PROVISION_IFACE` must be passed inline as shown above, not exported beforehand. An absolute path to the venv Python is required because `sudo` also resets `PATH`.
+> `sudo` strips environment variables, so `PROVISION_IFACE` must be passed inline as shown above, not exported beforehand.
 
 Expected terminal output (happy path):
 
