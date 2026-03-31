@@ -36,6 +36,9 @@ coverage/
 # Docker
 .dockerignore
 
+# TPM demo — never commit generated certs or keys
+certs/
+
 # Python
 __pycache__/
 *.py[cod]
