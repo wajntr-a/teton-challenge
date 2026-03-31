@@ -36,8 +36,10 @@ mkdir -p "$TPM_STATE_DIR"
 echo "==> Starting swtpm..."
 swtpm socket \
   --tpmstate "dir=$TPM_STATE_DIR" \
-  --ctrl "type=unixio,path=$TPM_SOCK" \
+  --server "type=unixio,path=$TPM_SOCK" \
+  --ctrl "type=unixio,path=$TPM_SOCK.ctrl" \
   --tpm2 \
+  --flags startup-clear \
   --daemon
 
 sleep 0.5
@@ -45,9 +47,6 @@ sleep 0.5
 export TPM2TOOLS_TCTI="swtpm:path=$TPM_SOCK"
 export TSS2_TCTI="swtpm:path=$TPM_SOCK"
 export TPM2OPENSSL_TCTI="swtpm:path=$TPM_SOCK"
-
-echo "==> Initializing TPM..."
-tpm2_startup --clear
 
 # ---------------------------------------------------------------------------
 # 3. Generate RSA key in TPM and persist at handle 0x81000001

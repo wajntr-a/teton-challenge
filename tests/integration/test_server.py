@@ -33,13 +33,9 @@ BASE_URL   = f'https://127.0.0.1:{TEST_PORT}'
 
 
 def _tpm2_openssl_available():
-    """Return True if the tpm2 OpenSSL provider can be loaded."""
-    import subprocess
-    result = subprocess.run(
-        ['openssl', 'list', '-providers'],
-        capture_output=True, text=True,
-    )
-    return 'tpm2' in result.stdout.lower()
+    """Return True if the tpm2 OpenSSL provider .so is installed."""
+    import glob
+    return bool(glob.glob('/usr/lib/*/ossl-modules/tpm2.so'))
 
 
 pytestmark = pytest.mark.skipif(
@@ -62,7 +58,7 @@ def live_server(swtpm_context):
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(
         str(swtpm_context['device_cert']),
-        keyfile='handle:0x81000001',
+        keyfile=str(swtpm_context['device_key']),
     )
 
     credentials = {}

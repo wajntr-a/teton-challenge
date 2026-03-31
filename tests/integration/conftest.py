@@ -18,6 +18,18 @@ def _run(cmd, **kwargs):
     return subprocess.run(cmd, check=True, capture_output=True, **kwargs)
 
 
+def _flush_transients():
+    """Flush all transient TPM handles to free object slots between commands."""
+    result = subprocess.run(
+        ['tpm2_getcap', 'handles-transient'],
+        capture_output=True, text=True,
+    )
+    for line in result.stdout.splitlines():
+        handle = line.strip().lstrip('- ')
+        if handle.startswith('0x8'):
+            subprocess.run(['tpm2_flushcontext', handle], capture_output=True)
+
+
 @pytest.fixture
 def swtpm_context(tmp_path):
     """
@@ -45,12 +57,15 @@ def swtpm_context(tmp_path):
     # -----------------------------------------------------------------------
     # Start swtpm
     # -----------------------------------------------------------------------
+    ctrl_path = tmp_path / "tpm.sock.ctrl"
     proc = subprocess.Popen(
         [
             "swtpm", "socket",
             "--tpmstate", f"dir={state_dir}",
-            "--ctrl", f"type=unixio,path={socket_path}",
+            "--server", f"type=unixio,path={socket_path}",
+            "--ctrl", f"type=unixio,path={ctrl_path}",
             "--tpm2",
+            "--flags", "startup-clear",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -76,11 +91,6 @@ def swtpm_context(tmp_path):
 
     try:
         # -------------------------------------------------------------------
-        # Initialize TPM
-        # -------------------------------------------------------------------
-        _run(["tpm2_startup", "--clear"])
-
-        # -------------------------------------------------------------------
         # Generate and persist RSA key at handle 0x81000001
         # -------------------------------------------------------------------
         primary_ctx = tmp_path / "primary.ctx"
@@ -89,6 +99,7 @@ def swtpm_context(tmp_path):
         device_ctx  = tmp_path / "device.ctx"
 
         _run(["tpm2_createprimary", "-C", "o", "-c", str(primary_ctx)])
+        _flush_transients()
         _run([
             "tpm2_create",
             "-C", str(primary_ctx),
@@ -96,6 +107,7 @@ def swtpm_context(tmp_path):
             "-u", str(device_pub),
             "-r", str(device_priv),
         ])
+        _flush_transients()
         _run([
             "tpm2_load",
             "-C", str(primary_ctx),
@@ -103,6 +115,7 @@ def swtpm_context(tmp_path):
             "-r", str(device_priv),
             "-c", str(device_ctx),
         ])
+        _flush_transients()
         # Evict any existing key at 0x81000001 then persist
         subprocess.run(
             ["tpm2_evictcontrol", "-C", "o", "-c", "0x81000001"],
@@ -125,18 +138,28 @@ def swtpm_context(tmp_path):
         ])
 
         # -------------------------------------------------------------------
-        # Create device CSR using TPM key (tpm2-openssl provider)
+        # Generate device key and cert (software key for ssl.SSLContext)
+        #
+        # Python's ssl.SSLContext.load_cert_chain() uses OpenSSL's file-based
+        # API (SSL_CTX_use_PrivateKey_file) which cannot load TPM store URIs
+        # like "handle:0x81000001". A software RSA key is used here so the TLS
+        # server can start. The TPM key at 0x81000001 (persisted above) is the
+        # production key; its usage requires a Python binding that supports the
+        # OpenSSL 3 OSSL_STORE API (not available in stdlib ssl).
         # -------------------------------------------------------------------
+        device_key  = tmp_path / "device.key"
         device_csr  = tmp_path / "device.csr"
         device_cert = tmp_path / "device.crt"
         san_ext     = tmp_path / "san.ext"
-        san_ext.write_text("subjectAltName=DNS:setup.teton-device.local\n")
+        san_ext.write_text("subjectAltName=DNS:setup.teton-device.local,IP:127.0.0.1\n")
 
         _run([
-            "openssl", "req",
-            "-provider", "tpm2", "-provider", "default",
-            "-new",
-            "-key", "handle:0x81000001",
+            "openssl", "genrsa",
+            "-out", str(device_key), "2048",
+        ])
+        _run([
+            "openssl", "req", "-new",
+            "-key", str(device_key),
             "-subj", "/CN=setup.teton-device.local",
             "-out", str(device_csr),
         ])
@@ -150,10 +173,6 @@ def swtpm_context(tmp_path):
             "-days", "1", "-sha256",
             "-extfile", str(san_ext),
         ])
-
-        # Use a software key path for the device cert
-        # (the private key lives in TPM at 0x81000001 — no file export)
-        device_key = Path("handle:0x81000001")
 
         yield {
             "socket":      str(socket_path),

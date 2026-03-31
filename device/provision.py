@@ -60,13 +60,16 @@ def _start_swtpm():
         [
             'swtpm', 'socket',
             '--tpmstate', f'dir={_TPM_STATE}',
-            '--ctrl', f'type=unixio,path={_TPM_SOCK}',
+            '--server', f'type=unixio,path={_TPM_SOCK}',
+            '--ctrl', f'type=unixio,path={_TPM_SOCK}.ctrl',
             '--tpm2',
+            '--flags', 'startup-clear',
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
     time.sleep(0.5)  # allow socket to appear
+    os.environ['TPM2OPENSSL_TCTI'] = f'swtpm:path={_TPM_SOCK}'
     return proc
 
 
