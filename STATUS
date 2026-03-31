@@ -9,7 +9,7 @@ CONVENTIONS: Conventional commits
 
 ITERATION: v1
 PHASE: implementation
-STATE: in-progress
+STATE: review
 UPDATED: 2026-03-31
 
 HISTORY:
@@ -24,3 +24,4 @@ HISTORY:
 - 2026-03-30 | implementation | in-progress | Phase entered
 - 2026-03-31 | implementation | review | M1-M3 complete: 37 unit tests pass, 11 integration tests skip (tpm2-openssl unavailable); M4 (demo + README) pending
 - 2026-03-31 | implementation | in-progress | Resumed for M4
+- 2026-03-31 | implementation | review | M4 complete: full end-to-end demo run on Ubuntu live USB with Intel AX211 Wi-Fi; SoftAP, DHCP, DNS, TLS, credential form, and nmcli connect all verified working
