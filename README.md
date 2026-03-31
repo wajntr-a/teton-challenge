@@ -120,8 +120,34 @@ Restart your browser after importing.
 
 > **Run on: Device**
 
+**Find your Wi-Fi interface name** — Linux does not always name the Wi-Fi interface `wlan0`. Run:
+
 ```bash
-sudo python3 device/provision.py
+ip link
+```
+
+Look for an interface that is not `lo` (loopback) or `eth`/`enp` (Ethernet). Common Wi-Fi names are `wlan0`, `wlo1`, `wlp2s0`. Note yours down — you will need it below.
+
+**Run the provisioning daemon:**
+
+If you installed Python dependencies system-wide (Ubuntu 22.04):
+
+```bash
+sudo PROVISION_IFACE=<your-interface> python3 device/provision.py
+```
+
+If you used a virtual environment (Ubuntu 24.04):
+
+```bash
+sudo PROVISION_IFACE=<your-interface> /absolute/path/to/.venv/bin/python3 device/provision.py
+```
+
+> `sudo` strips environment variables, so `PROVISION_IFACE` must be passed inline as shown above, not exported beforehand. The absolute path to the venv Python is required because `sudo` also resets `PATH`.
+
+Example with interface `wlo1` and a venv at `~/Documents/teton-challenge-main/.venv`:
+
+```bash
+sudo PROVISION_IFACE=wlo1 /home/ubuntu/Documents/teton-challenge-main/.venv/bin/python3 device/provision.py
 ```
 
 Expected terminal output (happy path):
@@ -137,7 +163,7 @@ Expected terminal output (happy path):
 
 **Provisioning steps:**
 
-1. The Device broadcasts a Wi-Fi AP named `Wajntraub-Demo-0000` on `wlan0`
+1. The Device broadcasts a Wi-Fi AP named `Wajntraub-Demo-0000` on the interface you specified
 2. On the **Configurator**, connect to the `Wajntraub-Demo-0000` Wi-Fi network
 3. On the **Configurator**, open a browser and navigate to `https://setup.wajntraub-demo.local` — a padlock should appear with no TLS warning
 4. Enter the target Wi-Fi SSID and password, click **Provision**
@@ -147,7 +173,7 @@ Expected terminal output (happy path):
 
 | Variable | Default | Description |
 |---|---|---|
-| `PROVISION_IFACE` | `wlan0` | Wi-Fi interface to use for SoftAP |
+| `PROVISION_IFACE` | `wlan0` | Wi-Fi interface to use for SoftAP — override if your interface is named differently |
 | `PROVISION_TIMEOUT` | `600` | Seconds to wait for credential submission before giving up |
 
 ---
