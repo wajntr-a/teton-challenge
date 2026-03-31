@@ -131,13 +131,13 @@ Restart your browser after importing.
 
 > **Run on: Device**
 
-**Find your Wi-Fi interface name** — Linux does not always name the Wi-Fi interface `wlan0`. Run:
+**Wi-Fi interface** — the provisioning daemon auto-detects the first wireless interface via `iw dev`. If your machine has multiple Wi-Fi interfaces or the wrong one is picked, find the correct name:
 
 ```bash
-ip link
+iw dev
 ```
 
-Look for an interface that is not `lo` (loopback) or `eth`/`enp` (Ethernet). Common Wi-Fi names are `wlan0`, `wlo1`, `wlp2s0`. Note yours down — you will need it below.
+and override it via `PROVISION_IFACE` as shown below.
 
 **Run the provisioning daemon:**
 
@@ -178,7 +178,7 @@ Expected terminal output (happy path):
 
 | Variable | Default | Description |
 |---|---|---|
-| `PROVISION_IFACE` | `wlan0` | Wi-Fi interface to use for SoftAP — override if your interface is named differently |
+| `PROVISION_IFACE` | auto-detected | Wi-Fi interface to use for SoftAP. Auto-detected via `iw dev` if unset. Override if the wrong interface is picked. |
 | `PROVISION_TIMEOUT` | `600` | Seconds to wait for credential submission before giving up |
 
 ---

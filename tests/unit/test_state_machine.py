@@ -228,3 +228,26 @@ class TestSwtpmDies:
         patches['wifi.connect'].assert_not_called()
         # create_server called once (for the first AP_MODE entry) then terminal exit
         assert patches['server.create_server'].call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# _detect_wifi_iface
+# ---------------------------------------------------------------------------
+
+class TestDetectWifiIface:
+    def test_returns_first_interface(self):
+        iw_output = "phy#0\n\tInterface wlo1\n\t\tifindex 3\n"
+        with patch('provision.subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(stdout=iw_output)
+            assert provision._detect_wifi_iface() == 'wlo1'
+
+    def test_returns_fallback_when_no_interface(self):
+        with patch('provision.subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(stdout='')
+            assert provision._detect_wifi_iface() == 'wlan0'
+
+    def test_returns_first_of_multiple_interfaces(self):
+        iw_output = "phy#0\n\tInterface wlan0\nphy#1\n\tInterface wlan1\n"
+        with patch('provision.subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(stdout=iw_output)
+            assert provision._detect_wifi_iface() == 'wlan0'

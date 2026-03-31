@@ -11,7 +11,7 @@ Run as root:
   sudo python3 device/provision.py
 
 Environment variables:
-  PROVISION_IFACE   Wi-Fi interface for SoftAP (default: wlan0)
+  PROVISION_IFACE   Wi-Fi interface for SoftAP (auto-detected via `iw dev` if unset)
   PROVISION_TIMEOUT AP_MODE timeout in seconds (default: 600)
 """
 
@@ -94,6 +94,16 @@ def _load_ssl_context(cert_path=_CERT_PATH, key_path=_KEY_PATH):
     return ctx
 
 
+def _detect_wifi_iface() -> str:
+    """Return the first wireless interface found by iw, or 'wlan0' as fallback."""
+    result = subprocess.run(['iw', 'dev'], capture_output=True, text=True)
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if line.startswith('Interface '):
+            return line.split()[1]
+    return 'wlan0'
+
+
 def _swtpm_alive(proc) -> bool:
     """Return True if the swtpm process is still running."""
     return proc.poll() is None
@@ -117,7 +127,7 @@ def run(iface: str = None) -> None:
             Defaults to 'wlan0'.
     """
     if iface is None:
-        iface = os.environ.get('PROVISION_IFACE', 'wlan0')
+        iface = os.environ.get('PROVISION_IFACE') or _detect_wifi_iface()
 
     state      = ProvisionState.INIT
     ssl_ctx    = None
