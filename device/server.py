@@ -118,21 +118,26 @@ def create_app(credentials: dict, event: threading.Event, shutdown_callback=None
 # HTTPS server factory
 # ---------------------------------------------------------------------------
 
-def create_server(credentials: dict, event: threading.Event, ssl_context):
+def create_server(credentials: dict, event: threading.Event, ssl_context, port: int = 443):
     """
-    Bind the Flask app to a werkzeug HTTPS server on port 443 in a daemon thread.
+    Bind the Flask app to a werkzeug HTTPS server in a daemon thread.
+
+    Parameters
+    ----------
+    port : Defaults to 443 (production). Pass a high port (e.g. 4433) for
+           integration tests that run without root.
 
     Returns (werkzeug.serving.BaseWSGIServer, threading.Thread).
 
     provision.py joins the thread after the event fires, then calls
-    create_server() again on retry — the join ensures port 443 is released
+    create_server() again on retry — the join ensures the port is released
     before the new bind.
     """
     def _shutdown():
         srv.shutdown()
 
     app = create_app(credentials, event, shutdown_callback=_shutdown)
-    srv = make_server('0.0.0.0', 443, app, ssl_context=ssl_context)
+    srv = make_server('0.0.0.0', port, app, ssl_context=ssl_context)
     thread = threading.Thread(target=srv.serve_forever, daemon=True)
     thread.start()
     return srv, thread
