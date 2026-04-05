@@ -2,9 +2,7 @@
 Unit tests for provision.py — state machine transitions.
 
 All external dependencies are mocked:
-  - provision._start_swtpm     → returns a mock process
   - provision._load_ssl_context → returns a mock ssl context
-  - provision._swtpm_alive      → controls swtpm health
   - wifi.start_ap / wifi.stop_ap / wifi.connect
   - server.create_server
 
@@ -20,6 +18,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 import provision
+import wifi
 from provision import ProvisionState
 
 
@@ -32,7 +31,7 @@ def _make_server_factory(ssid='TestNet', password='testpw', set_event=True):
     Return a create_server side_effect that optionally fills credentials and
     sets the event synchronously (simulating a successful POST /provision).
     """
-    def _factory(credentials, event, ssl_ctx, port=443):
+    def _factory(credentials, event, ssl_ctx, port=443, result=None, result_event=None):
         mock_srv = MagicMock()
         mock_thread = MagicMock()
         if set_event:
@@ -52,16 +51,14 @@ def _apply_patches(patches):
         yield patches
 
 
-def _base_patches(set_event=True, swtpm_alive=True, connect_raises=False):
+def _base_patches(set_event=True, connect_raises=False):
     """Return a dict of patch kwargs covering the full happy path."""
     return {
-        'provision._start_swtpm': MagicMock(return_value=MagicMock()),
         'provision._load_ssl_context': MagicMock(return_value=MagicMock()),
-        'provision._swtpm_alive': MagicMock(return_value=swtpm_alive),
         'wifi.start_ap': MagicMock(),
         'wifi.stop_ap': MagicMock(),
         'wifi.connect': MagicMock(
-            side_effect=subprocess.CalledProcessError(1, 'nmcli') if connect_raises else None
+            side_effect=wifi.WifiConnectError('nmcli failed', 'Could not connect — please try again.') if connect_raises else None
         ),
         'server.create_server': MagicMock(
             side_effect=_make_server_factory(set_event=set_event)
@@ -79,12 +76,6 @@ class TestInitToApMode:
         with _apply_patches(patches):
             provision.run()
         patches['provision._load_ssl_context'].assert_called_once()
-
-    def test_swtpm_started_in_init(self):
-        patches = _base_patches()
-        with _apply_patches(patches):
-            provision.run()
-        patches['provision._start_swtpm'].assert_called_once()
 
     def test_start_ap_called_on_ap_mode_entry(self):
         patches = _base_patches()
@@ -117,7 +108,7 @@ class TestHappyPath:
         def connect_first_fails(*a, **kw):
             call_count['n'] += 1
             if call_count['n'] == 1:
-                raise subprocess.CalledProcessError(1, 'nmcli')
+                raise wifi.WifiConnectError('nmcli failed', 'Could not connect.')
 
         patches = _base_patches()
         patches['wifi.connect'] = MagicMock(side_effect=connect_first_fails)
@@ -133,7 +124,7 @@ class TestHappyPath:
         mock_thread = MagicMock()
         mock_thread.join.side_effect = lambda: join_order.append('join')
 
-        def fake_create(credentials, event, ssl_ctx, port=443):
+        def fake_create(credentials, event, ssl_ctx, port=443, result=None, result_event=None):
             credentials['ssid'] = 'Net'
             credentials['password'] = 'pw'
             event.set()
@@ -162,7 +153,7 @@ class TestApModeTimeout:
 
         # Make event.wait() return False immediately to avoid 600s wait
         real_create = patches['server.create_server'].side_effect
-        def fast_timeout(credentials, event, ssl_ctx, port=443):
+        def fast_timeout(credentials, event, ssl_ctx, port=443, result=None, result_event=None):
             srv, thread = MagicMock(), MagicMock()
             # Patch event.wait so it returns False (timeout) instantly
             event.wait = MagicMock(return_value=False)
@@ -188,7 +179,7 @@ class TestRetry:
         def connect_first_fails(*a, **kw):
             call_count['n'] += 1
             if call_count['n'] == 1:
-                raise subprocess.CalledProcessError(1, 'nmcli')
+                raise wifi.WifiConnectError('nmcli failed', 'Could not connect.')
 
         patches = _base_patches()
         patches['wifi.connect'] = MagicMock(side_effect=connect_first_fails)
@@ -202,7 +193,7 @@ class TestRetry:
         """Only one retry allowed — terminal error after two nmcli failures."""
         patches = _base_patches()
         patches['wifi.connect'] = MagicMock(
-            side_effect=subprocess.CalledProcessError(1, 'nmcli')
+            side_effect=wifi.WifiConnectError('nmcli failed', 'Could not connect — please try again.')
         )
         with _apply_patches(patches):
             provision.run()
@@ -211,23 +202,6 @@ class TestRetry:
             "connect must be called exactly twice (first attempt + one retry)"
         # After two failures, run() exits — no infinite loop
         assert patches['server.create_server'].call_count == 2
-
-
-# ---------------------------------------------------------------------------
-# swtpm unexpected exit → terminal ERROR
-# ---------------------------------------------------------------------------
-
-class TestSwtpmDies:
-    def test_terminal_error_if_swtpm_dies(self):
-        """swtpm dying mid-session must cause terminal ERROR — no retry."""
-        patches = _base_patches(swtpm_alive=False)  # swtpm reported dead
-        with _apply_patches(patches):
-            provision.run()
-
-        # connect must never be called — terminal error before PROVISIONED
-        patches['wifi.connect'].assert_not_called()
-        # create_server called once (for the first AP_MODE entry) then terminal exit
-        assert patches['server.create_server'].call_count == 1
 
 
 # ---------------------------------------------------------------------------

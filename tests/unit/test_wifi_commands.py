@@ -142,13 +142,16 @@ class TestConnect:
         with patch('wifi.subprocess.Popen') as mock_popen, \
              patch('wifi.subprocess.run') as mock_run, \
              patch('wifi.time.sleep'):
+            mock_run.return_value = MagicMock(returncode=0)
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan0')
             wifi.connect('MyNet', 'secret')
 
         mock_run.assert_called_with(
             ['nmcli', 'device', 'wifi', 'connect', 'MyNet', 'password', 'secret'],
-            check=True,
+            check=False,
+            capture_output=True,
+            text=True,
         )
 
     def test_args_are_list_not_shell_string(self):
@@ -156,6 +159,7 @@ class TestConnect:
         with patch('wifi.subprocess.Popen') as mock_popen, \
              patch('wifi.subprocess.run') as mock_run, \
              patch('wifi.time.sleep'):
+            mock_run.return_value = MagicMock(returncode=0)
             mock_popen.return_value = MagicMock()
             wifi.start_ap('wlan0')
             wifi.connect('Net with spaces', 'p@$$w0rd!')
@@ -178,8 +182,11 @@ class TestConnect:
             mock_proc.terminate.side_effect = lambda: call_order.append('terminate')
 
             def track_run(cmd, **kw):
+                m = MagicMock()
+                m.returncode = 0
                 if cmd[0] == 'nmcli':
                     call_order.append('nmcli')
+                return m
 
             mock_run.side_effect = track_run
             mock_popen.return_value = mock_proc
@@ -189,3 +196,56 @@ class TestConnect:
 
         assert call_order.index('terminate') < call_order.index('nmcli'), \
             "stop_ap (terminate) must be called before nmcli connect"
+
+
+# ---------------------------------------------------------------------------
+# WifiConnectError — failure reason parsing
+# ---------------------------------------------------------------------------
+
+class TestWifiConnectError:
+    def _run_mock(self, returncode, stderr=''):
+        m = MagicMock()
+        m.returncode = returncode
+        m.stderr = stderr
+        return m
+
+    def test_raises_on_nonzero_exit(self):
+        with patch('wifi.subprocess.Popen'), patch('wifi.time.sleep'), \
+             patch('wifi.subprocess.run', return_value=self._run_mock(4, 'Secrets were required')):
+            wifi.start_ap('wlan0')
+            with pytest.raises(wifi.WifiConnectError):
+                wifi.connect('Net', 'wrongpw')
+
+    def test_no_error_on_success(self):
+        with patch('wifi.subprocess.Popen'), patch('wifi.time.sleep'), \
+             patch('wifi.subprocess.run', return_value=self._run_mock(0, '')):
+            wifi.start_ap('wlan0')
+            wifi.connect('Net', 'pw')  # must not raise
+
+    def test_wrong_password_user_message(self):
+        with patch('wifi.subprocess.Popen'), patch('wifi.time.sleep'), \
+             patch('wifi.subprocess.run',
+                   return_value=self._run_mock(4, 'Secrets were required, but not provided')):
+            wifi.start_ap('wlan0')
+            with pytest.raises(wifi.WifiConnectError) as exc_info:
+                wifi.connect('Net', 'wrongpw')
+        assert 'password' in exc_info.value.user_message.lower()
+
+    def test_ssid_not_found_user_message(self):
+        with patch('wifi.subprocess.Popen'), patch('wifi.time.sleep'), \
+             patch('wifi.subprocess.run',
+                   return_value=self._run_mock(10, "No network with SSID 'GhostNet' found")):
+            wifi.start_ap('wlan0')
+            with pytest.raises(wifi.WifiConnectError) as exc_info:
+                wifi.connect('GhostNet', 'pw')
+        assert 'GhostNet' in exc_info.value.user_message
+        assert 'not found' in exc_info.value.user_message.lower()
+
+    def test_fallback_user_message(self):
+        with patch('wifi.subprocess.Popen'), patch('wifi.time.sleep'), \
+             patch('wifi.subprocess.run',
+                   return_value=self._run_mock(1, 'Some other error')):
+            wifi.start_ap('wlan0')
+            with pytest.raises(wifi.WifiConnectError) as exc_info:
+                wifi.connect('SomeNet', 'pw')
+        assert 'SomeNet' in exc_info.value.user_message

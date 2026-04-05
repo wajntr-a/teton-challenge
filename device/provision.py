@@ -5,7 +5,6 @@ Sequences:
   INIT → AP_MODE → PROVISIONED → CONNECTING → ONLINE
   CONNECTING → ERROR → AP_MODE  (one retry on nmcli failure)
   AP_MODE    → ERROR            (timeout — default 10 min)
-  swtpm dies  → terminal ERROR  (no retry)
 
 Run as root:
   sudo python3 device/provision.py
@@ -21,7 +20,6 @@ import os
 import ssl
 import subprocess
 import threading
-import time
 
 import server
 import wifi
@@ -30,10 +28,8 @@ log = logging.getLogger(__name__)
 
 TIMEOUT = int(os.environ.get('PROVISION_TIMEOUT', '600'))
 
-_CERT_PATH   = os.path.join(os.path.dirname(__file__), '..', 'certs', 'device.crt')
-_KEY_PATH    = os.path.join(os.path.dirname(__file__), '..', 'certs', 'device.key')
-_TPM_STATE   = '/tmp/tpm-state'
-_TPM_SOCK    = '/tmp/tpm.sock'
+_CERT_PATH = os.path.join(os.path.dirname(__file__), '..', 'certs', 'device.crt')
+_KEY_PATH  = os.path.join(os.path.dirname(__file__), '..', 'certs', 'device.key')
 
 
 # ---------------------------------------------------------------------------
@@ -52,26 +48,6 @@ class ProvisionState(enum.Enum):
 # ---------------------------------------------------------------------------
 # Internal helpers (patchable in unit tests)
 # ---------------------------------------------------------------------------
-
-def _start_swtpm():
-    """Start swtpm daemon and return the Popen handle."""
-    os.makedirs(_TPM_STATE, exist_ok=True)
-    proc = subprocess.Popen(
-        [
-            'swtpm', 'socket',
-            '--tpmstate', f'dir={_TPM_STATE}',
-            '--server', f'type=unixio,path={_TPM_SOCK}',
-            '--ctrl', f'type=unixio,path={_TPM_SOCK}.ctrl',
-            '--tpm2',
-            '--flags', 'startup-clear',
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    time.sleep(0.5)  # allow socket to appear
-    os.environ['TPM2OPENSSL_TCTI'] = f'swtpm:path={_TPM_SOCK}'
-    return proc
-
 
 def _load_ssl_context(cert_path=_CERT_PATH, key_path=_KEY_PATH):
     """
@@ -104,11 +80,6 @@ def _detect_wifi_iface() -> str:
     return 'wlan0'
 
 
-def _swtpm_alive(proc) -> bool:
-    """Return True if the swtpm process is still running."""
-    return proc.poll() is None
-
-
 def _log_transition(from_state: ProvisionState, to_state: ProvisionState) -> None:
     log.info('State: %s → %s', from_state.value, to_state.value)
 
@@ -131,8 +102,9 @@ def run(iface: str = None) -> None:
 
     state      = ProvisionState.INIT
     ssl_ctx    = None
-    swtpm_proc = None
     credentials: dict = {}
+    result: dict = {}
+    result_event = threading.Event()
     retry_count = 0
     MAX_RETRIES = 1
 
@@ -143,8 +115,7 @@ def run(iface: str = None) -> None:
         # -------------------------------------------------------------------
         if state == ProvisionState.INIT:
             try:
-                swtpm_proc = _start_swtpm()
-                ssl_ctx    = _load_ssl_context()
+                ssl_ctx = _load_ssl_context()
                 _log_transition(state, ProvisionState.AP_MODE)
                 state = ProvisionState.AP_MODE
             except Exception as exc:
@@ -154,24 +125,22 @@ def run(iface: str = None) -> None:
         # -------------------------------------------------------------------
         elif state == ProvisionState.AP_MODE:
             credentials = {}
+            result = {}
+            result_event = threading.Event()
             event = threading.Event()
 
             try:
                 wifi.start_ap(iface)
-                srv, thread = server.create_server(credentials, event, ssl_ctx)
+                srv, thread = server.create_server(
+                    credentials, event, ssl_ctx,
+                    result=result, result_event=result_event,
+                )
             except Exception as exc:
                 log.error('AP_MODE start failed: %s', exc)
                 state = ProvisionState.ERROR
                 continue
 
             fired = event.wait(timeout=TIMEOUT)
-
-            # Check swtpm health before acting on the event
-            if not _swtpm_alive(swtpm_proc):
-                log.error('swtpm exited unexpectedly — terminal ERROR')
-                srv.shutdown()
-                thread.join()
-                return  # terminal — no retry
 
             if not fired:
                 log.error('AP_MODE timed out after %ds', TIMEOUT)
@@ -194,10 +163,15 @@ def run(iface: str = None) -> None:
         elif state == ProvisionState.CONNECTING:
             try:
                 wifi.connect(credentials['ssid'], credentials['password'])
+                result['ok'] = True
+                result_event.set()
                 _log_transition(state, ProvisionState.ONLINE)
                 state = ProvisionState.ONLINE
-            except subprocess.CalledProcessError as exc:
+            except wifi.WifiConnectError as exc:
                 log.error('nmcli connect failed: %s', exc)
+                result['ok'] = False
+                result['reason'] = exc.user_message
+                result_event.set()
                 _log_transition(state, ProvisionState.ERROR)
                 state = ProvisionState.ERROR
 

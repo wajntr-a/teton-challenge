@@ -15,6 +15,13 @@ import subprocess
 import tempfile
 import time
 
+
+class WifiConnectError(Exception):
+    """Raised when nmcli fails to connect to the target network."""
+    def __init__(self, message: str, user_message: str):
+        super().__init__(message)
+        self.user_message = user_message
+
 # ---------------------------------------------------------------------------
 # Config templates
 # ---------------------------------------------------------------------------
@@ -119,9 +126,26 @@ def connect(ssid: str, password: str) -> None:
 
     Credentials are passed as discrete list arguments to nmcli — never
     interpolated into a shell string — to prevent shell injection.
+
+    Raises WifiConnectError on failure with a user-facing message that
+    distinguishes wrong password from SSID not found from other errors.
     """
     stop_ap()
-    subprocess.run(
+    result = subprocess.run(
         ['nmcli', 'device', 'wifi', 'connect', ssid, 'password', password],
-        check=True,
+        check=False,
+        capture_output=True,
+        text=True,
     )
+    if result.returncode != 0:
+        stderr = result.stderr
+        if 'Secrets were required' in stderr or result.returncode == 4:
+            user_message = 'Incorrect Wi-Fi password — please check and try again.'
+        elif f"No network with SSID '{ssid}'" in stderr or result.returncode == 10:
+            user_message = f"Network '{ssid}' not found — check the network name and try again."
+        else:
+            user_message = f"Could not connect to '{ssid}' — please try again."
+        raise WifiConnectError(
+            f"nmcli failed (exit {result.returncode}): {stderr.strip()}",
+            user_message=user_message,
+        )

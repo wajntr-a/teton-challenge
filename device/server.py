@@ -184,11 +184,17 @@ _ERROR_HTML = """\
 """
 
 
+# Seconds the POST handler will wait for the state machine to resolve the
+# connect attempt before timing out and returning a generic error.
+_CONNECT_TIMEOUT = 60
+
+
 # ---------------------------------------------------------------------------
 # Flask app factory
 # ---------------------------------------------------------------------------
 
-def create_app(credentials: dict, event: threading.Event, shutdown_callback=None):
+def create_app(credentials: dict, event: threading.Event, shutdown_callback=None,
+               result: dict = None, result_event: threading.Event = None):
     """
     Create and return the Flask provisioning app.
 
@@ -199,6 +205,11 @@ def create_app(credentials: dict, event: threading.Event, shutdown_callback=None
     shutdown_callback : Called (in a daemon thread) after a successful POST to
                         signal the server to stop. Pass None or a MagicMock in
                         unit tests.
+    result          : Shared dict. State machine writes {'ok': bool, 'reason': str}.
+                      If None, POST returns success immediately (legacy / integration
+                      test path).
+    result_event    : threading.Event fired by the state machine after the connect
+                      attempt. If None, POST returns success immediately.
     """
     app = Flask(__name__)
 
@@ -224,13 +235,22 @@ def create_app(credentials: dict, event: threading.Event, shutdown_callback=None
         credentials['password'] = password
         event.set()
 
-        if shutdown_callback is not None:
-            # Run in a daemon thread so the response is returned before
-            # the server shuts down (calling shutdown() from within the
-            # request handler would deadlock the server loop).
-            threading.Thread(target=shutdown_callback, daemon=True).start()
-
-        return make_response(_SUCCESS_HTML, 200)
+        if result_event is not None:
+            # Block until the state machine resolves the connect attempt.
+            result_event.wait(timeout=_CONNECT_TIMEOUT)
+            if result.get('ok'):
+                if shutdown_callback is not None:
+                    threading.Thread(target=shutdown_callback, daemon=True).start()
+                return make_response(_SUCCESS_HTML, 200)
+            else:
+                reason = result.get('reason', 'Could not connect — please try again.')
+                return make_response(_ERROR_HTML.replace('{error_reason}', reason), 200)
+        else:
+            # Legacy path used by integration tests and unit tests that do not
+            # exercise the connect-result feedback loop.
+            if shutdown_callback is not None:
+                threading.Thread(target=shutdown_callback, daemon=True).start()
+            return make_response(_SUCCESS_HTML, 200)
 
     return app
 
@@ -239,7 +259,8 @@ def create_app(credentials: dict, event: threading.Event, shutdown_callback=None
 # HTTPS server factory
 # ---------------------------------------------------------------------------
 
-def create_server(credentials: dict, event: threading.Event, ssl_context, port: int = 443):
+def create_server(credentials: dict, event: threading.Event, ssl_context, port: int = 443,
+                  result: dict = None, result_event: threading.Event = None):
     """
     Bind the Flask app to a werkzeug HTTPS server in a daemon thread.
 
@@ -257,7 +278,8 @@ def create_server(credentials: dict, event: threading.Event, ssl_context, port: 
     def _shutdown():
         srv.shutdown()
 
-    app = create_app(credentials, event, shutdown_callback=_shutdown)
+    app = create_app(credentials, event, shutdown_callback=_shutdown,
+                     result=result, result_event=result_event)
     srv = make_server('0.0.0.0', port, app, ssl_context=ssl_context)
     thread = threading.Thread(target=srv.serve_forever, daemon=True)
     thread.start()
