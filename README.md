@@ -1,6 +1,6 @@
 # teton-challenge
 
-**[Demo video](https://youtu.be/tB8vUrIZvB4)**
+[![Demo video](https://img.youtube.com/vi/tB8vUrIZvB4/maxresdefault.jpg)](https://youtu.be/tB8vUrIZvB4)
 
 Wi-Fi provisioning for Linux IoT devices. A device running in SoftAP mode serves a TLS-protected credential form. The TLS certificate is issued by a per-device CA and verified by the configurator's browser.
 
