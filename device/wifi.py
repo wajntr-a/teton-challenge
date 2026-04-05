@@ -29,12 +29,25 @@ class WifiConnectError(Exception):
 _HOSTAPD_CONF = """\
 interface={iface}
 driver=nl80211
-ssid=Wajntraub-Demo-0000
+ssid=Wajntraub-Demo-{suffix}
 hw_mode=g
 channel=6
 auth_algs=1
 ignore_broadcast_ssid=0
 """
+
+
+def _get_mac_suffix(iface: str) -> str:
+    """Return the last 3 octets of the interface MAC as 6 uppercase hex chars.
+
+    Reads /sys/class/net/<iface>/address. Falls back to '000000' on error.
+    """
+    try:
+        with open(f'/sys/class/net/{iface}/address') as f:
+            mac = f.readline().strip()
+        return mac.replace(':', '')[-6:].upper()
+    except OSError:
+        return '000000'
 
 _DNSMASQ_BASE_ARGS = [
     'dnsmasq', '--no-daemon',
@@ -76,7 +89,7 @@ def start_ap(iface: str) -> None:
     with tempfile.NamedTemporaryFile(
         mode='w', suffix='.conf', prefix='wajntraub-hostapd-', delete=False
     ) as f:
-        f.write(_HOSTAPD_CONF.format(iface=iface))
+        f.write(_HOSTAPD_CONF.format(iface=iface, suffix=_get_mac_suffix(iface)))
         _hostapd_conf_path = f.name
 
     _hostapd_proc = subprocess.Popen(['hostapd', _hostapd_conf_path])

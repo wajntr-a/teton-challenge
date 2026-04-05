@@ -7,7 +7,7 @@ Mock targets use the usage-module pattern: patch('wifi.subprocess.*').
 
 import threading
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 
@@ -26,6 +26,24 @@ def reset_wifi_state():
 # ---------------------------------------------------------------------------
 # start_ap
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# _get_mac_suffix
+# ---------------------------------------------------------------------------
+
+class TestGetMacSuffix:
+    def test_returns_last_six_hex_chars(self):
+        with patch('builtins.open', mock_open(read_data='aa:bb:cc:dd:ee:ff\n')):
+            assert wifi._get_mac_suffix('wlan0') == 'DDEEFF'
+
+    def test_uppercase(self):
+        with patch('builtins.open', mock_open(read_data='aa:bb:cc:11:22:33\n')):
+            assert wifi._get_mac_suffix('wlan0') == '112233'
+
+    def test_fallback_on_oserror(self):
+        with patch('builtins.open', side_effect=OSError('no such file')):
+            assert wifi._get_mac_suffix('wlan0') == '000000'
+
 
 class TestStartAp:
     def test_calls_hostapd(self):
@@ -73,6 +91,18 @@ class TestStartAp:
             dnsmasq_cmd = next(c for c in commands if c[0] == 'dnsmasq')
             assert any('--interface=wlan0' in a for a in dnsmasq_cmd), \
                 "dnsmasq not called with --interface=wlan0"
+
+    def test_ssid_contains_mac_suffix(self):
+        with patch('wifi.subprocess.Popen') as mock_popen, \
+             patch('wifi.subprocess.run'), \
+             patch('wifi.time.sleep'), \
+             patch('wifi._get_mac_suffix', return_value='AABBCC'):
+            mock_popen.return_value = MagicMock()
+            wifi.start_ap('wlan0')
+
+            conf_path = wifi._hostapd_conf_path
+            content = Path(conf_path).read_text()
+            assert 'ssid=Wajntraub-Demo-AABBCC' in content
 
     def test_interface_substituted_in_hostapd_conf(self):
         with patch('wifi.subprocess.Popen') as mock_popen, \
