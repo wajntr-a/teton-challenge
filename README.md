@@ -155,34 +155,6 @@ Expected terminal output (happy path):
 4. Enter the target Wi-Fi SSID and password, click **Provision**
 5. The Device disconnects from the SoftAP, connects to the target network, and logs `ONLINE`
 
-**Full terminal output from a real run:**
-
-```
-ubuntu@ubuntu:~/Documents/teton-challenge-main$ sudo .venv/bin/python3 device/provision.py
-2026-04-05 19:52:05,756 INFO State: INIT
-2026-04-05 19:52:05,757 INFO State: INIT → AP_MODE
-Error: ipv4: Address not found.
-wlo1: interface state UNINITIALIZED->ENABLED
-wlo1: AP-ENABLED
-dnsmasq: started, version 2.90 cachesize 150
-dnsmasq-dhcp: DHCP, IP range 192.168.4.2 -- 192.168.4.20, lease time 1d
-dnsmasq-dhcp: DHCP, sockets bound exclusively to interface wlo1
-wlo1: STA 58:1c:f8:34:19:d0 IEEE 802.11: authenticated
-wlo1: STA 58:1c:f8:34:19:d0 IEEE 802.11: associated (aid 1)
-wlo1: AP-STA-CONNECTED 58:1c:f8:34:19:d0
-2026-04-05 19:52:57,508 INFO 192.168.4.20 - - [05/Apr/2026 19:52:57] "GET / HTTP/1.1" 200 -
-2026-04-05 19:53:02,110 INFO State: AP_MODE → PROVISIONED
-2026-04-05 19:53:02,110 INFO State: PROVISIONED → CONNECTING
-wlo1: interface state ENABLED->DISABLED
-dnsmasq: exiting on receipt of SIGTERM
-wlo1: AP-STA-DISCONNECTED 58:1c:f8:34:19:d0
-wlo1: AP-DISABLED
-2026-04-05 19:53:02,801 INFO 192.168.4.20 - - [05/Apr/2026 19:53:02] "POST /provision HTTP/1.1" 200 -
-2026-04-05 19:53:02,812 INFO State: CONNECTING → ONLINE
-2026-04-05 19:53:02,813 INFO Connected to network: MAWifi
-2026-04-05 19:53:02,813 INFO Provisioning complete — device is connected.
-```
-
 **Environment variables** (set on the Device before running):
 
 | Variable | Default | Description |
@@ -215,6 +187,34 @@ wlo1: AP-DISABLED
 Full end-to-end walkthrough recorded on an Ubuntu live USB (MSI B760 board, Intel AX211 Wi-Fi). Click the thumbnail to watch on YouTube.
 
 [![Watch the demo on YouTube](https://img.youtube.com/vi/tB8vUrIZvB4/maxresdefault.jpg)](https://youtu.be/tB8vUrIZvB4)
+
+**Terminal output from the recorded run:**
+
+```
+ubuntu@ubuntu:~/Documents/teton-challenge-main$ sudo .venv/bin/python3 device/provision.py
+2026-04-05 19:52:05,756 INFO State: INIT
+2026-04-05 19:52:05,757 INFO State: INIT → AP_MODE
+Error: ipv4: Address not found.
+wlo1: interface state UNINITIALIZED->ENABLED
+wlo1: AP-ENABLED
+dnsmasq: started, version 2.90 cachesize 150
+dnsmasq-dhcp: DHCP, IP range 192.168.4.2 -- 192.168.4.20, lease time 1d
+dnsmasq-dhcp: DHCP, sockets bound exclusively to interface wlo1
+wlo1: STA 58:1c:f8:34:19:d0 IEEE 802.11: authenticated
+wlo1: STA 58:1c:f8:34:19:d0 IEEE 802.11: associated (aid 1)
+wlo1: AP-STA-CONNECTED 58:1c:f8:34:19:d0
+2026-04-05 19:52:57,508 INFO 192.168.4.20 - - [05/Apr/2026 19:52:57] "GET / HTTP/1.1" 200 -
+2026-04-05 19:53:02,110 INFO State: AP_MODE → PROVISIONED
+2026-04-05 19:53:02,110 INFO State: PROVISIONED → CONNECTING
+wlo1: interface state ENABLED->DISABLED
+dnsmasq: exiting on receipt of SIGTERM
+wlo1: AP-STA-DISCONNECTED 58:1c:f8:34:19:d0
+wlo1: AP-DISABLED
+2026-04-05 19:53:02,801 INFO 192.168.4.20 - - [05/Apr/2026 19:53:02] "POST /provision HTTP/1.1" 200 -
+2026-04-05 19:53:02,812 INFO State: CONNECTING → ONLINE
+2026-04-05 19:53:02,813 INFO Connected to network: MAWifi
+2026-04-05 19:53:02,813 INFO Provisioning complete — device is connected.
+```
 
 ---
 
