@@ -183,9 +183,11 @@ wlo1: AP-DISABLED
 2026-04-05 19:53:02,813 INFO Provisioning complete — device is connected.
 ```
 
-**Demo video** — full end-to-end walkthrough on an Ubuntu live USB:
+### Proof of concept — working demo
 
-[![Watch the demo](https://img.youtube.com/vi/tB8vUrIZvB4/maxresdefault.jpg)](https://youtu.be/tB8vUrIZvB4)
+Full end-to-end walkthrough recorded on an Ubuntu live USB (MSI B760 board, Intel AX211 Wi-Fi). Click the thumbnail to watch on YouTube.
+
+[![Watch the demo on YouTube](https://img.youtube.com/vi/tB8vUrIZvB4/maxresdefault.jpg)](https://youtu.be/tB8vUrIZvB4)
 
 **Environment variables** (set on the Device before running):
 
