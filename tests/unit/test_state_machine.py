@@ -220,6 +220,10 @@ class TestDetectWifiIface:
             mock_run.return_value = MagicMock(stdout='')
             assert provision._detect_wifi_iface() == 'wlan0'
 
+    def test_returns_fallback_when_iw_not_installed(self):
+        with patch('provision.subprocess.run', side_effect=FileNotFoundError):
+            assert provision._detect_wifi_iface() == 'wlan0'
+
     def test_returns_first_of_multiple_interfaces(self):
         iw_output = "phy#0\n\tInterface wlan0\nphy#1\n\tInterface wlan1\n"
         with patch('provision.subprocess.run') as mock_run:

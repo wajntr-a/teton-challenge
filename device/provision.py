@@ -71,8 +71,16 @@ def _load_ssl_context(cert_path=_CERT_PATH, key_path=_KEY_PATH):
 
 
 def _detect_wifi_iface() -> str:
-    """Return the first wireless interface found by iw, or 'wlan0' as fallback."""
-    result = subprocess.run(['iw', 'dev'], capture_output=True, text=True)
+    """Return the first wireless interface found by iw, or 'wlan0' as fallback.
+
+    Falls back to 'wlan0' if iw is not installed or returns no interfaces.
+    Override with PROVISION_IFACE to skip auto-detection entirely.
+    """
+    try:
+        result = subprocess.run(['iw', 'dev'], capture_output=True, text=True)
+    except FileNotFoundError:
+        log.warning('iw not found — falling back to wlan0. Install iw or set PROVISION_IFACE.')
+        return 'wlan0'
     for line in result.stdout.splitlines():
         line = line.strip()
         if line.startswith('Interface '):

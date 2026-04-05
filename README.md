@@ -30,6 +30,7 @@ sudo apt-get install -y \
   openssl \
   python3 python3-pip python3-venv \
   hostapd dnsmasq network-manager \
+  iw \
   libnss3-tools
 ```
 
