@@ -33,23 +33,7 @@ sudo apt-get install -y \
   libnss3-tools
 ```
 
-**Python dependencies** — run on the **Device**:
-
-On **Ubuntu 22.04** (Python 3.10), pip installs system-wide directly:
-
-```bash
-pip install -r requirements.txt
-```
-
-On **Ubuntu 24.04** (Python 3.12+), the OS blocks system-wide pip installs (PEP 668). Use a virtual environment instead:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Re-activate the venv (`source .venv/bin/activate`) in any new terminal before running tests or `provision.py`.
+Python dependencies are installed automatically by `setup.sh` into a `.venv` at the project root — no manual `pip install` needed.
 
 ### Configurator
 
@@ -70,6 +54,7 @@ sudo ./scripts/setup.sh
 What it does:
 - Generates `certs/wajntraub-demo-ca.crt` (demo CA) and `certs/device.crt` / `certs/device.key` (device certificate and key)
 - Verifies the cert chain with `openssl verify`
+- Creates `.venv/` and installs all Python dependencies (Flask, pytest, requests)
 
 **Multiple devices** — each device needs its own `device.key` and `device.crt`, but they can all share the same CA. To issue a new device cert without regenerating the CA (no browser re-import needed):
 
@@ -77,7 +62,7 @@ What it does:
 sudo ./scripts/setup.sh --new-device-cert
 ```
 
-**Cleaning up** — to remove all artefacts created by setup (TPM state, sockets, generated keys and certificates):
+**Cleaning up** — to remove all artefacts created by setup (generated keys, certificates, and the virtual environment):
 
 ```bash
 sudo ./scripts/setup.sh --clean
@@ -143,19 +128,11 @@ and override it via `PROVISION_IFACE` as shown below.
 
 **Run the provisioning daemon:**
 
-If you installed Python dependencies system-wide (Ubuntu 22.04):
-
-```bash
-sudo PROVISION_IFACE=<your-interface> python3 device/provision.py
-```
-
-If you used a virtual environment (Ubuntu 24.04):
-
 ```bash
 sudo PROVISION_IFACE=<your-interface> .venv/bin/python3 device/provision.py
 ```
 
-> `sudo` strips environment variables, so `PROVISION_IFACE` must be passed inline as shown above, not exported beforehand.
+> `sudo` strips environment variables, so `PROVISION_IFACE` must be passed inline as shown above, not exported beforehand. `.venv/bin/python3` is an absolute-style path relative to the repo root — no activation needed.
 
 Expected terminal output (happy path):
 
@@ -192,14 +169,13 @@ Expected terminal output (happy path):
 **Unit tests only** (no hardware required, always works):
 
 ```bash
-pip install -r requirements-test.txt
-python3 -m pytest tests/unit/ -v
+.venv/bin/python3 -m pytest tests/unit/ -v
 ```
 
 **Full suite including integration tests:**
 
 ```bash
-python3 -m pytest tests/ -v
+.venv/bin/python3 -m pytest tests/ -v
 ```
 
 ---
@@ -222,6 +198,17 @@ tests/
 docs/
   architecture.md     System design, C4 diagrams, test strategy
 ```
+
+---
+
+## Production deployment
+
+This demo uses a manually invoked process and a repo-local `.venv`. For a production device fleet:
+
+| Step | Approach |
+|---|---|
+| **Service lifecycle** | Replace manual invocation with a `systemd` unit. `ExecStart=/opt/wajntraub-provision/.venv/bin/python3 device/provision.py` gives auto-start on boot, restart on failure, and `journald` logging — no terminal session required. |
+| **Packaging** | Build a `.deb` (using `fpm` or a `debian/` directory). The `postinst` script runs `setup.sh`, creates the venv, installs deps, and enables the systemd unit. Installation becomes `dpkg -i wajntraub-provision_1.0_arm64.deb`. |
 
 ---
 

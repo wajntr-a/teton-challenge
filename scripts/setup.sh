@@ -15,8 +15,10 @@
 
 set -euo pipefail
 
-CERTS_DIR="$(dirname "$0")/../certs"
-CERTS_DIR="$(realpath "$CERTS_DIR")"
+PROJECT_ROOT="$(dirname "$0")/.."
+PROJECT_ROOT="$(realpath "$PROJECT_ROOT")"
+CERTS_DIR="$PROJECT_ROOT/certs"
+VENV_DIR="$PROJECT_ROOT/.venv"
 
 # ---------------------------------------------------------------------------
 # --new-device-cert: reuse existing CA, generate new device key + cert only
@@ -78,6 +80,10 @@ if [ "${1:-}" = "--clean" ]; then
             _found=$((_found + 1))
         fi
     done
+    if [ -d "$VENV_DIR" ]; then
+        echo "  $VENV_DIR/"
+        _found=$((_found + 1))
+    fi
 
     if [ "$_found" -eq 0 ]; then
         echo "  (nothing to remove)"
@@ -95,7 +101,7 @@ if [ "${1:-}" = "--clean" ]; then
     fi
 
     echo ""
-    echo "==> Removing generated certificates..."
+    echo "==> Removing generated artefacts..."
     rm -f /tmp/wajntraub-demo-device.csr \
           "$CERTS_DIR/wajntraub-demo-ca.key" \
           "$CERTS_DIR/wajntraub-demo-ca.crt" \
@@ -103,6 +109,7 @@ if [ "${1:-}" = "--clean" ]; then
           "$CERTS_DIR/device.key" \
           "$CERTS_DIR/device.crt"
     rmdir "$CERTS_DIR" 2>/dev/null || true
+    rm -rf "$VENV_DIR"
 
     echo "Clean complete."
     exit 0
@@ -151,10 +158,20 @@ echo ""
 echo "==> Verifying cert chain..."
 openssl verify -CAfile "$CERTS_DIR/wajntraub-demo-ca.crt" "$CERTS_DIR/device.crt"
 
+# ---------------------------------------------------------------------------
+# 5. Create Python virtual environment and install dependencies
+# ---------------------------------------------------------------------------
+echo ""
+echo "==> Creating Python virtual environment..."
+python3 -m venv "$VENV_DIR"
+"$VENV_DIR/bin/pip" install --quiet -r "$PROJECT_ROOT/requirements.txt" -r "$PROJECT_ROOT/requirements-test.txt"
+echo "    Virtual environment ready at $VENV_DIR"
+
 echo ""
 echo "Setup complete."
 echo "  CA cert:     $CERTS_DIR/wajntraub-demo-ca.crt"
 echo "  Device cert: $CERTS_DIR/device.crt"
 echo "  Device key:  $CERTS_DIR/device.key"
+echo "  Python venv: $VENV_DIR"
 echo ""
 echo "Next: sudo ./scripts/install-ca.sh"
