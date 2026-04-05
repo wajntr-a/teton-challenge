@@ -179,6 +179,7 @@ def run(iface: str = None) -> None:
                 result_event.set()
                 thread.join(timeout=5)  # server responds with success, shuts itself down
                 _log_transition(state, ProvisionState.ONLINE)
+                log.info('Connected to network: %s', credentials['ssid'])
                 state = ProvisionState.ONLINE
             except wifi.WifiConnectError as exc:
                 log.error('nmcli connect failed: %s', exc)
