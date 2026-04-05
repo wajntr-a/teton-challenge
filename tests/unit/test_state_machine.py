@@ -118,11 +118,16 @@ class TestHappyPath:
         # _load_ssl_context must only be called once (INIT), not on retry
         patches['provision._load_ssl_context'].assert_called_once()
 
-    def test_server_thread_joined_before_connect(self):
-        """provision.py joins the server thread after event fires, before wifi.connect."""
-        join_order = []
+    def test_server_thread_joined_after_connect(self):
+        """provision.py sets result_event and joins the server thread after wifi.connect.
+
+        join() must NOT happen before connect — that would deadlock because the
+        server thread is blocked in POST /provision waiting on result_event, which
+        the CONNECTING state sets only after connect() returns.
+        """
+        call_order = []
         mock_thread = MagicMock()
-        mock_thread.join.side_effect = lambda: join_order.append('join')
+        mock_thread.join.side_effect = lambda **kw: call_order.append('join')
 
         def fake_create(credentials, event, ssl_ctx, port=443, result=None, result_event=None):
             credentials['ssid'] = 'Net'
@@ -133,13 +138,13 @@ class TestHappyPath:
         patches = _base_patches()
         patches['server.create_server'] = MagicMock(side_effect=fake_create)
         patches['wifi.connect'] = MagicMock(
-            side_effect=lambda *a, **kw: join_order.append('connect')
+            side_effect=lambda *a, **kw: call_order.append('connect')
         )
         with _apply_patches(patches):
             provision.run()
 
-        assert join_order.index('join') < join_order.index('connect'), \
-            "thread.join() must happen before wifi.connect()"
+        assert call_order.index('connect') < call_order.index('join'), \
+            "wifi.connect() must happen before thread.join()"
 
 
 # ---------------------------------------------------------------------------

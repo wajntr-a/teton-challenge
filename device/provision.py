@@ -113,6 +113,8 @@ def run(iface: str = None) -> None:
     credentials: dict = {}
     result: dict = {}
     result_event = threading.Event()
+    srv    = None
+    thread = None
     retry_count = 0
     MAX_RETRIES = 1
 
@@ -158,7 +160,9 @@ def run(iface: str = None) -> None:
                 _log_transition(state, ProvisionState.ERROR)
                 state = ProvisionState.ERROR
             else:
-                thread.join()
+                # Do NOT join here — server thread is blocked in POST handler
+                # waiting on result_event, which the CONNECTING state sets.
+                # Joining here would deadlock.
                 _log_transition(state, ProvisionState.PROVISIONED)
                 state = ProvisionState.PROVISIONED
 
@@ -173,6 +177,7 @@ def run(iface: str = None) -> None:
                 wifi.connect(credentials['ssid'], credentials['password'])
                 result['ok'] = True
                 result_event.set()
+                thread.join(timeout=5)  # server responds with success, shuts itself down
                 _log_transition(state, ProvisionState.ONLINE)
                 state = ProvisionState.ONLINE
             except wifi.WifiConnectError as exc:
@@ -180,6 +185,8 @@ def run(iface: str = None) -> None:
                 result['ok'] = False
                 result['reason'] = exc.user_message
                 result_event.set()
+                srv.shutdown()   # failure path skips shutdown_callback — free port 443 manually
+                thread.join(timeout=5)
                 _log_transition(state, ProvisionState.ERROR)
                 state = ProvisionState.ERROR
 
