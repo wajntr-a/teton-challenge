@@ -56,7 +56,7 @@ C4Context
 
 | # | Decision | Rationale | Alternatives Considered |
 |---|---|---|---|
-| AD-1 | **SoftAP as provisioning channel** | No extra hardware on either side; works on any browser and OS; well-understood IoT pattern; fully reproducible with standard Linux tools | BLE (requires BLE hardware on configurator; short range limits usability in field deployment), Ethernet (requires cable + port), QR/DPP (doesn't scale), NFC (hardware dependency on both sides) |
+| AD-1 | **SoftAP as provisioning channel** | No extra hardware on either side; works on any browser and OS; well-understood IoT pattern; fully reproducible with standard Linux tools | BLE (requires BLE hardware on both device and configurator; common but adds BOM and firmware complexity; ~10m range limits usability in large facilities), Ethernet (requires cable + port), QR/DPP (doesn't scale), NFC (hardware dependency on both sides) |
 | AD-2 | **CA-signed device certificate** | Single Wajntraub Demo CA cert covers all devices at any fleet size; closes rogue device attack without a dedicated app; same model scales to TPM-backed hardware identity in production with no architecture change | Self-signed TLS (encryption without authentication — fails under rogue AP), PAKE (high implementation cost, no meaningful advantage here), cert pinning (requires O(n) cert distribution at fleet scale) |
 | AD-3 | **DNS + known URL over captive portal** | Captive portal CNAs are HTTP-based, exempt from MDM browser policies, and behave inconsistently across iOS/Android/Windows; DNS + known URL (`setup.wajntraub-demo.local`) works identically in every standard browser | OS captive portal (CNA quirks), manual IP entry (`192.168.4.1` — fragile UX for non-developers) |
 | AD-4 | **Python 3 + Flask** | The provisioning server handles one GET and one POST then shuts down; no async required; immediately readable by any evaluator; stdlib covers everything needed (ssl, subprocess, threading) with no unusual dependencies | FastAPI (unnecessary for 2 routes), Node.js (no benefit over Flask here) |
@@ -428,7 +428,7 @@ The Wajntraub Demo Device broadcasts a Wi-Fi access point via `hostapd`. The con
 
 | Channel | Reason rejected |
 |---|---|
-| BLE | Requires BLE hardware on the configurator; typical range of ~10m limits usability across a large facility |
+| BLE | Requires BLE hardware on both the device and the configurator; common but adds BOM and firmware complexity; ~10m range limits usability across a large facility |
 | Ethernet | Eliminates wireless attack surface entirely but requires a physical cable and exposed port — not viable for field deployment |
 | QR code / DPP | Doesn't scale past ~3 devices; sticker-based; scanning is a fragile UX step at volume |
 | PAKE (SPAKE2, J-PAKE) | Cryptographically sound but high implementation cost; no advantage over CA-signed device certificates for this fleet model |
