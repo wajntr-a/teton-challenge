@@ -568,11 +568,11 @@ The CA-signed device certificate model extends naturally to device-to-device mTL
 
 #### Option D — Wi-Fi SoftAP peer tree *(no new hardware, logarithmic time)*
 
-Each provisioned device becomes a provisioner. Once a device has received credentials and connected to the target network, it re-enters AP_MODE, provisions up to N nearby devices, then reconnects. Those devices do the same. Credentials propagate as a tree across the floor.
+Each provisioned device becomes a configurator — not an AP. Once a device has received credentials and connected to the target network, it scans for `Wajntraub-Demo-*` SSIDs, connects as a station to up to N of them, and POSTs the credentials to `https://setup.wajntraub-demo.local/provision` on each — exactly as the technician's browser did. The provisioning server on each target device is already running and unchanged. The device already has `certs/wajntraub-demo-ca.crt` on disk, so it can verify the next device's TLS certificate with no additional trust infrastructure. The only new piece of software is a lightweight client script that runs after the device connects to the target network.
 
 **Discovery is self-coordinating:** a device broadcasting `Wajntraub-Demo-XXXXXX` is unprovisioned and waiting. A device that has connected to the target network is no longer broadcasting. Any provisioner simply scans for `Wajntraub-Demo-*` SSIDs — those are exactly the devices still needing provisioning. No coordination protocol needed; the existing SoftAP behavior already encodes the state.
 
-**Range extends naturally:** each newly provisioned device is in a new physical location and becomes the next AP, so coverage fans out across the floor without any technician movement.
+**Range extends naturally:** each newly provisioned device connects to peers from its own physical location, so coverage fans out across the floor without any technician movement.
 
 **Failure is self-healing:** devices overlap in range, so if a mid-tree device fails, its unprovisioned neighbours remain visible to other provisioned devices in adjacent branches and get picked up on their next scan pass. The only unrecoverable failure is a device physically isolated from all provisioned devices — unlikely in any realistic deployment.
 
@@ -595,11 +595,11 @@ Each provisioned device becomes a provisioner. Once a device has received creden
 | **Technician time** | One device only — the rest is autonomous |
 | **Staging time** | None |
 | **Extra HW** | None |
-| **Extra SW** | Provisioner logic added to existing state machine |
+| **Extra SW** | Lightweight client script on each device (server unchanged) |
 | **Device HW change** | None |
 
-**Pros:** no new hardware, no app, logarithmic time, self-extending range, self-healing, trust model unchanged — each device still presents its CA-signed cert during every provisioning handshake.
-**Cons:** requires a software extension to the state machine (re-enter AP_MODE after connecting); brief disconnect/reconnect cycle per wave as each device switches between station and AP mode.
+**Pros:** no new hardware, no app, logarithmic time, self-extending range, self-healing, trust model unchanged — each device still presents its CA-signed cert during every provisioning handshake. Server-side device code is unchanged.
+**Cons:** requires a lightweight client script on each device; brief disconnect/reconnect cycle per wave as each device temporarily leaves the target network to connect to a peer's SoftAP.
 
 #### Recommendation
 
