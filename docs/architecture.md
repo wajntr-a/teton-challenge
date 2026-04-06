@@ -515,7 +515,7 @@ The following assumptions drive the analysis:
 5. Non-technical operator — no CLI, no per-device decision-making
 6. Target network credentials may or may not be known before on-site arrival *(pivotal — see below)*
 
-**Recommended approach: Option A** — Wi-Fi SoftAP peer propagation. It requires no additional hardware, the software addition is a lightweight client script on top of the existing provisioning server, and the mechanism is straightforward to test with a few dozen devices in a lab. The investment is minimal and the time gain is dramatic — from hours to minutes. It has the best effort-to-impact ratio of the four options presented.
+**Recommended approach: Option A** — Wi-Fi SoftAP peer propagation. It requires no additional hardware, the software addition is a lightweight client script on top of the existing provisioning server, and the mechanism is straightforward to test with a few dozen devices in a lab. The investment is minimal and the time gain is dramatic — from hours to minutes. It has the best effort-to-impact ratio of the four options presented. The SoftAP flow in this submission demonstrates the trust model — CA-signed device certificates, authenticated TLS — that underpins all four options. The provisioning channel changes at scale; the security architecture does not.
 
 #### Option A — Wi-Fi SoftAP peer propagation *(no new hardware, exponential spread)*
 
@@ -611,5 +611,3 @@ Credentials injected before deployment at a staging table (office or warehouse).
 
 **Pros:** fastest, zero field skill required, no wireless attack surface at provisioning, scales to any fleet size.
 **Cons:** blocked if target credentials are unknown at staging time (hospital VLANs, rotating credentials).
-
-The SoftAP flow in this submission demonstrates the trust model — CA-signed device certificates, authenticated TLS — that underpins all four options. The provisioning channel changes at scale; the security architecture does not.
