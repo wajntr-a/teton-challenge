@@ -4,8 +4,6 @@ Root test configuration.
 - Inserts device/ into sys.path so all test files can import wifi, server,
   and provision without package qualification.
 - Provides shared cert generation fixtures for unit tests.
-- Does NOT start or own any swtpm instance (that belongs to
-  tests/integration/conftest.py).
 """
 
 import subprocess
