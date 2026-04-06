@@ -57,13 +57,16 @@ What it does:
 - Verifies the cert chain with `openssl verify`
 - Creates `.venv/` and installs all Python dependencies (Flask, pytest, requests)
 
-**Multiple devices** — each device needs its own `device.key` and `device.crt`, but they can all share the same CA. To issue a new device cert without regenerating the CA (no browser re-import needed):
+**Multiple devices** — each device needs its own `device.key` and `device.crt`, but they can all share the same CA (no browser re-import needed). For each new device:
 
-```bash
-sudo ./scripts/setup.sh --new-device-cert
-```
+1. Run on the provisioning machine to generate a fresh key and cert:
+   ```bash
+   sudo ./scripts/setup.sh --new-device-cert
+   ```
+2. Copy the freshly generated `certs/device.key` and `certs/device.crt` to the new device.
+3. Repeat for each additional device — each run overwrites the previous pair in `certs/`.
 
-Copy `certs/device.key` and `certs/device.crt` to the new device. Keep `certs/wajntraub-demo-ca.key` and `certs/wajntraub-demo-ca.crt` on the provisioning machine — the CA key signs each new device cert, and the CA cert is what the browser trusts (imported once via `install-ca.sh`). Do not copy the CA key to devices.
+Keep `certs/wajntraub-demo-ca.key` and `certs/wajntraub-demo-ca.crt` on the provisioning machine at all times. Do not copy the CA key to devices.
 
 **Cleaning up** — to remove all artefacts created by setup (generated keys, certificates, and the virtual environment):
 
