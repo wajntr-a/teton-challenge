@@ -526,20 +526,24 @@ Credentials injected before deployment at a staging table (office or warehouse).
 **Pros:** fastest, zero field skill required, no wireless attack surface at provisioning, scales to any fleet size.
 **Cons:** blocked if target credentials are unknown at staging time (hospital VLANs, rotating credentials).
 
-#### Option B — Wi-Fi SoftAP + provisioning app *(recommended for field provisioning)*
+#### Option B — Wi-Fi SoftAP + provisioning app *(operational improvement, not a simultaneity solution)*
 
 Each device runs SoftAP as in this demo. A Teton-issued app (tablet or laptop) scans for `Teton-Device-*` SSIDs, lists all discovered devices, asks for credentials once, then provisions them sequentially. Device code is unchanged.
 
+This option does **not** answer the simultaneity question — provisioning is still one device at a time, one after another. What it removes is the per-device manual steps: the technician enters credentials once and the app iterates. The improvement is operational, not architectural.
+
+There are also practical RF limitations at scale. All devices currently broadcast on the same channel (channel 6). With 200 APs in the same building, co-channel interference degrades signal quality and scan reliability — this would need to be addressed (e.g. randomising across the three non-overlapping 2.4 GHz channels). Additionally, OS Wi-Fi scan APIs typically return 50–100 APs per pass; seeing all 200 requires multiple scan iterations and may still miss devices at the edge of range. In a large hospital wing, a single technician position won't cover the whole floor — multiple technicians working in zones would be needed, further underscoring that this is zone-by-zone sequential work, not simultaneous.
+
 | Metric | Value |
 |---|---|
-| **Field time** | ~45s/device × 200 ≈ 2.5h (1 technician); ~1.25h (2 devices) |
+| **Field time** | ~45s/device × 200 ≈ 2.5h (1 technician); parallelisable across zones with multiple technicians |
 | **Staging time** | None |
 | **Extra HW** | Managed tablet or laptop per technician |
 | **Extra SW** | Provisioning app (any platform — Windows, Android, iOS) |
 | **Device HW change** | None |
 
-**Pros:** no device code changes, works offline, same CA cert trust model.
-**Cons:** sequential — 2.5h for 200 devices with one technician. App development is non-trivial.
+**Pros:** no device code changes, works offline, same CA cert trust model, credentials entered once.
+**Cons:** fundamentally sequential — does not solve the simultaneity problem. RF interference at 200 devices on one channel requires mitigation. App development is non-trivial.
 
 #### Option C — Matter over Thread (true simultaneous propagation)
 
