@@ -63,6 +63,8 @@ What it does:
 sudo ./scripts/setup.sh --new-device-cert
 ```
 
+Copy `certs/device.key` and `certs/device.crt` to the new device. Keep `certs/wajntraub-demo-ca.key` and `certs/wajntraub-demo-ca.crt` on the provisioning machine — the CA key signs each new device cert, and the CA cert is what the browser trusts (imported once via `install-ca.sh`). Do not copy the CA key to devices.
+
 **Cleaning up** — to remove all artefacts created by setup (generated keys, certificates, and the virtual environment):
 
 ```bash
