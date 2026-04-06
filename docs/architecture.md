@@ -587,11 +587,13 @@ Each provisioned device becomes a configurator — not an AP. Once a device has 
 | 4 | 81 | 121 |
 | 5 | 243 | 364 |
 
-200 devices covered in **5 waves × ~45s ≈ under 4 minutes**. Total time = `log_N(200) × 45s`.
+Within each wave, one device provisions N peers sequentially (N × 45s). Devices at the same tree level work in parallel. Total time = `ceil(log_N(200)) × N × 45s`, minimised around N ≈ e (~2.7), so **N=3 is optimal**:
+
+200 devices covered in **5 waves × 135s ≈ 11 minutes**. Increasing N beyond 3 raises total time: N=5 gives 4 waves × 225s = 15 minutes.
 
 | Metric | Value |
 |---|---|
-| **Field time** | ~4 min for 200 devices (N=3); less with higher N |
+| **Field time** | ~11 min for 200 devices (N=3, optimal); higher N increases time |
 | **Technician time** | One device only — the rest is autonomous |
 | **Staging time** | None |
 | **Extra HW** | None |
