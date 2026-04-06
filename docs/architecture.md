@@ -566,14 +566,51 @@ The CA-signed device certificate model extends naturally to device-to-device mTL
 
 *Why not Zigbee or Z-Wave?* Both support mesh propagation and are viable for credential distribution. Zigbee (IEEE 802.15.4) is widely deployed in building automation; Z-Wave has been progressively open-sourced since 2016, with its full specification and IPR review completed in 2025. However, neither has a native IP stack — they require a coordinator or gateway to bridge into IP. This breaks the end-to-end TLS trust model: rather than each device independently opening a TLS connection and presenting its certificate, credentials would have to be decrypted and re-encrypted at the gateway, introducing a trusted intermediary not present in the original architecture. Thread avoids this entirely — it is IP-native (IPv6), so the same TLS + device certificate model extends to the mesh without modification.
 
+#### Option D — Wi-Fi SoftAP peer tree *(no new hardware, logarithmic time)*
+
+Each provisioned device becomes a provisioner. Once a device has received credentials and connected to the target network, it re-enters AP_MODE, provisions up to N nearby devices, then reconnects. Those devices do the same. Credentials propagate as a tree across the floor.
+
+**Discovery is self-coordinating:** a device broadcasting `Wajntraub-Demo-XXXXXX` is unprovisioned and waiting. A device that has connected to the target network is no longer broadcasting. Any provisioner simply scans for `Wajntraub-Demo-*` SSIDs — those are exactly the devices still needing provisioning. No coordination protocol needed; the existing SoftAP behavior already encodes the state.
+
+**Range extends naturally:** each newly provisioned device is in a new physical location and becomes the next AP, so coverage fans out across the floor without any technician movement.
+
+**Failure is self-healing:** devices overlap in range, so if a mid-tree device fails, its unprovisioned neighbours remain visible to other provisioned devices in adjacent branches and get picked up on their next scan pass. The only unrecoverable failure is a device physically isolated from all provisioned devices — unlikely in any realistic deployment.
+
+**Time scales logarithmically.** With each device provisioning N peers in parallel waves:
+
+| Wave | New devices (N=3) | Cumulative |
+|---|---|---|
+| 0 (technician) | 1 | 1 |
+| 1 | 3 | 4 |
+| 2 | 9 | 13 |
+| 3 | 27 | 40 |
+| 4 | 81 | 121 |
+| 5 | 243 | 364 |
+
+200 devices covered in **5 waves × ~45s ≈ under 4 minutes**. Total time = `log_N(200) × 45s`.
+
+| Metric | Value |
+|---|---|
+| **Field time** | ~4 min for 200 devices (N=3); less with higher N |
+| **Technician time** | One device only — the rest is autonomous |
+| **Staging time** | None |
+| **Extra HW** | None |
+| **Extra SW** | Provisioner logic added to existing state machine |
+| **Device HW change** | None |
+
+**Pros:** no new hardware, no app, logarithmic time, self-extending range, self-healing, trust model unchanged — each device still presents its CA-signed cert during every provisioning handshake.
+**Cons:** requires a software extension to the state machine (re-enter AP_MODE after connecting); brief disconnect/reconnect cycle per wave as each device switches between station and AP mode.
+
 #### Recommendation
 
 ```
 Are target credentials known before on-site arrival?
   YES → Option A. Zero field time, zero extra device cost.
-  NO  → Fleet > ~2,000 devices?
-          YES → Option C (Matter/Thread). Hardware investment justified at scale.
-          NO  → Option B. Builds directly on this demo, no device changes needed.
+  NO  → No hardware change budget?
+          YES → Option D. Logarithmic time, no new hardware, autonomous after first device.
+          NO  → Fleet > ~2,000 devices?
+                  YES → Option C (Matter/Thread). Hardware investment justified at scale.
+                  NO  → Option B. Simplest app-based approach, no device changes needed.
 ```
 
-The SoftAP flow in this submission demonstrates the trust model — CA-signed device certificates, authenticated TLS — that underpins all three options. The provisioning channel changes at scale; the security architecture does not.
+The SoftAP flow in this submission demonstrates the trust model — CA-signed device certificates, authenticated TLS — that underpins all four options. The provisioning channel changes at scale; the security architecture does not.
