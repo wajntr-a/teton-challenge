@@ -54,7 +54,6 @@ C4Context
 | Network management | nmcli (NetworkManager) | latest apt | Standard on Pi OS and Ubuntu; handles station connect and disconnect |
 | CA / cert tooling | OpenSSL CLI | 3.x | One-time setup script; generates demo CA and signs device CSR |
 | Test framework | pytest | latest | Standard Python test runner |
-| Integration test HTTP | requests | latest | Issues HTTPS requests against Flask test server with custom CA |
 
 ---
 
@@ -97,7 +96,7 @@ stateDiagram-v2
   INIT --> AP_MODE : ssl.SSLContext loaded · certs present
   AP_MODE --> PROVISIONED : POST /provision received
   PROVISIONED --> CONNECTING : credentials validated (non-empty SSID + password)
-  CONNECTING --> ONLINE : nmcli connect succeeded · ping OK
+  CONNECTING --> ONLINE : nmcli connect succeeded
   CONNECTING --> ERROR : nmcli connect failed
   ONLINE --> [*] : log success · exit
   ERROR --> AP_MODE : restart AP · one retry
@@ -109,10 +108,10 @@ stateDiagram-v2
 | Component | Type | Responsibility | Governing ADs |
 |---|---|---|---|
 | `provision.py` | Server | State machine entry point. Sequences INIT → AP_MODE → PROVISIONED → CONNECTING → ONLINE. Constructs `ssl.SSLContext` (software key + device cert) once during INIT. Creates `threading.Event` and credentials dict; calls `server.create_server(credentials, event, ssl_context)` each time it enters AP_MODE (initial and retry); waits on event (10 min timeout → ERROR); calls `wifi.py` with credentials after event fires. On `ERROR → AP_MODE` retry (expected case: nmcli failure), the existing `ssl.SSLContext` is reused — no rebuild. | AD-1, AD-5 |
-| `server.py` | Server | Flask HTTPS app served via `werkzeug.serving.make_server()` in a thread. Exposes `create_server(credentials, event, ssl_context)` factory — accepts the pre-built `ssl.SSLContext` from `provision.py`; returns a configured `werkzeug.serving.BaseWSGIServer` instance and a daemon `threading.Thread`. `GET /` serves credential form; `POST /provision` validates credentials, stores in shared dict, sets `threading.Event`, calls `werkzeug_server.shutdown()` (blocks until the in-flight request completes), returns response. `provision.py` joins the thread after the event fires before calling `create_server()` again on retry — ensuring port 443 is released before rebind. Sets HSTS response header. All HTML responses are inline multiline strings in `server.py` — no template engine, no `templates/` directory. `error_reason` is injected via f-string. | AD-3, AD-4, AD-6 |
-| `wifi.py` | Server | Wraps `hostapd`, `dnsmasq`, and `nmcli` subprocess calls. Owns the full SoftAP lifecycle: renders `hostapd.conf` and `dnsmasq.conf` inline templates to temp files (substituting `PROVISION_IFACE`), starts and stops daemons, and issues the final `nmcli` station connect. Exposes `start_ap(iface)`, `stop_ap()`, and `connect(ssid, password)`. `provision.py` calls `wifi.start_ap(iface)` — no config file paths cross the boundary. | AD-1, AD-3 |
+| `server.py` | Server | Flask HTTPS app served via `werkzeug.serving.make_server()` in a thread. Exposes `create_server(credentials, event, ssl_context, result, result_event)` factory — accepts the pre-built `ssl.SSLContext` from `provision.py`; returns a `(BaseWSGIServer, Thread)` pair. `GET /` serves credential form. `POST /provision` validates credentials, stores in shared dict, sets the credentials `threading.Event`, then **long-polls**: blocks on `result_event.wait(timeout=60)` until the state machine resolves the connect attempt. On success, starts `shutdown_callback` in a daemon thread and returns the success page. On failure, returns the error page with a user-facing reason; `provision.py` calls `srv.shutdown()` explicitly on this path to free port 443 before retry. `provision.py` joins the server thread after `result_event` is set — ensuring port 443 is released before rebind. Sets HSTS response header on every response. All HTML is inline in `server.py` — no template engine, no `templates/` directory. | AD-3, AD-4, AD-6 |
+| `wifi.py` | Server | Wraps `hostapd`, `dnsmasq`, and `nmcli` subprocess calls. Owns the full SoftAP lifecycle: renders a `hostapd.conf` inline template to a temp file (substituting interface and MAC-derived SSID suffix), starts hostapd and dnsmasq (dnsmasq via CLI arguments — no conf file), assigns `192.168.4.1` to the interface, stops daemons on teardown, and issues the final `nmcli` station connect. Exposes `start_ap(iface)`, `stop_ap()`, and `connect(ssid, password)`. Raises `WifiConnectError` on nmcli failure with a user-facing message distinguishing wrong password from SSID not found. | AD-1, AD-3 |
 | `hostapd` | System daemon | Broadcasts the SoftAP SSID as an open AP (no PSK). Config written to a temp file by `wifi.py` at AP start from an inline template, substituting `PROVISION_IFACE`. | AD-1 |
-| `dnsmasq` | System daemon | DHCP on SoftAP subnet + DNS resolution for `setup.wajntraub-demo.local → 192.168.4.1`. Config written to a temp file by `wifi.py` at AP start from an inline template, substituting `PROVISION_IFACE`. | AD-3 |
+| `dnsmasq` | System daemon | DHCP on SoftAP subnet (`192.168.4.2–192.168.4.20`, 24h lease) + DNS resolution for `setup.wajntraub-demo.local → 192.168.4.1`. Started by `wifi.py` with CLI arguments — no conf file. | AD-3 |
 | `setup.sh` | Script | One-time setup: generates Wajntraub demo CA, generates software device key, signs device CSR with demo CA. Outputs `certs/device.key`, `certs/device.crt`, `certs/wajntraub-demo-ca.crt`. Idempotent (overwrites on each run). | AD-2, AD-5 |
 | `install-ca.sh` | Script | Ubuntu-only convenience script for the one-machine demo setup (device and browser on the same machine). Copies `certs/wajntraub-demo-ca.crt` to `/usr/local/share/ca-certificates/` and runs `update-ca-certificates` (covers Chrome). Runs `certutil -A` against `~/.mozilla/firefox/*.default-release/` if a Firefox profile exists. Requires `libnss3-tools`. Idempotent. Windows / macOS / iOS / Android: manual cert import — documented in README. | AD-2 |
 
@@ -210,16 +209,13 @@ teton-challenge/
 │   ├── setup.sh              # One-time demo setup (CA + device cert)
 │   └── install-ca.sh         # Ubuntu-only CA install helper
 ├── tests/
-│   ├── conftest.py           # Adds device/ to sys.path; shared fixtures
-│   ├── unit/
-│   │   ├── test_state_machine.py
-│   │   ├── test_validation.py
-│   │   └── test_wifi_commands.py
-│   └── integration/
-│       ├── conftest.py       # Flask test client + cert fixtures
-│       └── test_server.py
+│   ├── conftest.py           # Adds device/ to sys.path; shared cert fixtures
+│   └── unit/
+│       ├── test_state_machine.py
+│       ├── test_validation.py
+│       └── test_wifi_commands.py
 ├── requirements.txt          # flask
-└── requirements-test.txt     # pytest, requests
+└── requirements-test.txt     # pytest
 ```
 
 `device/` is a scripts directory. Running `python3 device/provision.py` adds `device/` to `sys.path` automatically. For tests, root `tests/conftest.py` inserts `device/` into `sys.path` so that `import provision`, `import server`, `import wifi` resolve without package qualification. Mock patch strings use unqualified module names: `patch('wifi.subprocess.run')`, `patch('provision.ssl.SSLContext')`.
@@ -268,28 +264,23 @@ Not applicable for this submission. Manual setup and run per README.
 | Level | Scope | Tools | Coverage Target |
 |---|---|---|---|
 | Unit | State machine transitions, credential validation, subprocess argument construction, cert path verification | pytest, `unittest.mock` | All state transitions and all validation paths |
-| Integration | Flask server with real TLS: TLS handshake, `GET /`, `POST /provision` with real cert chain | pytest, `requests` with custom CA | Happy path + validation failures |
 
 ### Test Architecture
 
 ```
 tests/
 ├── conftest.py               # Shared fixtures: temp cert dirs, cert generation helpers
-├── unit/
-│   ├── test_state_machine.py
-│   ├── test_validation.py
-│   └── test_wifi_commands.py
-└── integration/
-    ├── conftest.py           # Flask test client + cert fixtures
-    └── test_server.py
+└── unit/
+    ├── test_state_machine.py
+    ├── test_validation.py
+    └── test_wifi_commands.py
 ```
 
 ### Test Isolation
 
 Tests are strictly isolated from the demo environment:
 
-- **Certs:** Tests generate short-lived test CA and device certs in `pytest.tmp_path`. The demo's `certs/` directory is never read or written by tests.
-- **TLS verification in integration tests:** `requests` calls use `verify=path/to/test-ca.crt` (the test CA cert generated in `pytest.tmp_path`). The system trust store is never modified.
+- **Certs:** Tests generate short-lived test CA and device certs in `pytest.tmp_path`. The demo's `certs/` directory is never read or written by tests. The system trust store is never modified.
 
 ### Test Dependencies
 
@@ -298,7 +289,6 @@ Tracked separately from runtime dependencies. All test dependencies are listed i
 **`requirements-test.txt`:**
 ```
 pytest
-requests
 ```
 
 **Unit test mock targets:**
@@ -377,41 +367,19 @@ After `setup.sh`, the evaluator installs `certs/wajntraub-demo-ca.crt` on their 
 
 - **Logging:** Python `logging` module, format `%(asctime)s %(levelname)s %(message)s`. One log line per state transition at INFO level. Errors include exception info.
 - **State transitions logged at INFO:** `INIT`, `AP_MODE`, `PROVISIONED`, `CONNECTING`, `ONLINE`, `ERROR`
-- **Submission evidence:** Terminal log output + browser screenshots (form, success/failure page) + `ip addr` + `ping` output post-provisioning
+- **Submission evidence:** Terminal log output + browser screenshots (form, success/failure page) + video recording of end-to-end provisioning flow
 
 No external logging infrastructure. Standalone embedded provisioning daemon.
 
 ---
 
-## 11. Open Questions
-
-- [ ] `CAP_NET_BIND_SERVICE` as alternative to full `root` for port 443 — deferred
-
----
-
-## 12. Deferred to Tickets
-
-- Exact `hostapd.conf` values: channel number, `hw_mode`, `ssid` format (how is the `Wajntraub-Demo-XXXX` suffix derived?) — AP is open (no PSK)
-- `PROVISION_IFACE` env var: exact name TBD; read at startup by `provision.py`; default `wlan0`; applied to `hostapd.conf`, `dnsmasq.conf`, and `nmcli` calls
-- Exact `dnsmasq.conf` values: subnet range, lease time, interface binding
-- Exact `nmcli` command syntax: hidden vs visible SSID handling, error output parsing
-- `setup.sh` idempotency behavior when certs already exist
-- Flask runs on port 443 under `sudo` — no `CAP_NET_BIND_SERVICE`
-- Provisioning timeout env var name (default 10 min)
-- Cert validity periods in `setup.sh` (CA: 10 years, device cert: 1 year — suggested)
-- `certs/` is fully gitignored — all files generated by `setup.sh` at evaluation time; no pre-committed certs or keys
-- `install-ca.sh` Firefox profile path glob (`*.default-release` vs `*.default` across distros)
-- systemd unit file for auto-start on boot — deferred pending Pi deployment details
-
----
-
-## 13. Submission Responses
+## 11. Submission Responses
 
 The following sections answer the three specific questions required by the challenge brief.
 
 ---
 
-### 13.1 — Why this communication channel, and what was traded off?
+### 11.1 — Why this communication channel, and what was traded off?
 
 **Choice: Wi-Fi SoftAP**
 
@@ -442,7 +410,7 @@ The Wajntraub Demo Device broadcasts a Wi-Fi access point via `hostapd`. The con
 
 ---
 
-### 13.2 — How are credentials protected in transit?
+### 11.2 — How are credentials protected in transit?
 
 **TLS with CA-signed device certificate**
 
@@ -506,7 +474,7 @@ The first browser visit could theoretically be intercepted via HTTP before an HT
 
 ---
 
-### 13.3 — How does this change for 200 simultaneous devices?
+### 11.3 — How does this change for 200 simultaneous devices?
 
 **Simultaneously** — 200 devices in one hospital wing at the same time, operated by non-technical staff. SoftAP is a one-at-a-time flow; it does not directly address simultaneous scale. Two fundamentally different approaches exist: **sequential automation** (remove all manual steps per device) and **true simultaneous propagation** (credentials reach all devices at once via mesh).
 
