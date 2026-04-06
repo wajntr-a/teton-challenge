@@ -39,6 +39,14 @@ coverage/
 # TPM demo — never commit generated certs or keys
 certs/
 
+# Internal — not for repo
+STATUS
+CLAUDE.md
+docs/implementation-plan.md
+docs/retrospective.md
+docs/review-architecture.md
+evidence/
+
 # Python
 __pycache__/
 *.py[cod]
