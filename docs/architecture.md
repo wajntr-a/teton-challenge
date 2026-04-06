@@ -502,8 +502,6 @@ The first browser visit could theoretically be intercepted via HTTP before an HT
 
 ### 11.3 — How does this change for 200 simultaneous devices?
 
-**Recommended approach: Option A** — Wi-Fi SoftAP peer propagation. It requires no additional hardware, the software addition is a lightweight client script on top of the existing provisioning server, and the mechanism is straightforward to test with a few dozen devices in a lab. The investment is minimal and the time gain is dramatic — from hours to minutes. It has the best effort-to-impact ratio of the four options presented.
-
 **Simultaneously** — 200 devices in one hospital wing at the same time, operated by non-technical staff. SoftAP is a one-at-a-time flow; it does not directly address simultaneous scale. Two fundamentally different approaches exist: **sequential automation** (remove all manual steps per device) and **true simultaneous propagation** (credentials reach all devices at once via mesh).
 
 #### Assumptions
@@ -516,6 +514,8 @@ The following assumptions drive the analysis:
 4. 200 devices = one planned deployment event, not ad-hoc installs
 5. Non-technical operator — no CLI, no per-device decision-making
 6. Target network credentials may or may not be known before on-site arrival *(pivotal — see below)*
+
+**Recommended approach: Option A** — Wi-Fi SoftAP peer propagation. It requires no additional hardware, the software addition is a lightweight client script on top of the existing provisioning server, and the mechanism is straightforward to test with a few dozen devices in a lab. The investment is minimal and the time gain is dramatic — from hours to minutes. It has the best effort-to-impact ratio of the four options presented.
 
 #### Option A — Wi-Fi SoftAP peer propagation *(no new hardware, exponential spread)*
 
