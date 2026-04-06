@@ -1,5 +1,24 @@
 # teton-challenge — Architecture
 
+## Table of contents
+
+- [1. Overview](#1-overview)
+- [2. Key Architectural Decisions](#2-key-architectural-decisions)
+- [3. Technology Stack](#3-technology-stack)
+- [4. Component Architecture](#4-component-architecture)
+- [5. Data Model](#5-data-model)
+- [6. API Design](#6-api-design)
+- [7. Infrastructure & Deployment](#7-infrastructure--deployment)
+- [8. Test Strategy](#8-test-strategy)
+- [9. Security Considerations](#9-security-considerations)
+- [10. Observability](#10-observability)
+- [11. Submission Responses](#11-submission-responses)
+  - [11.1 — Why this communication channel?](#111--why-this-communication-channel-and-what-was-traded-off)
+  - [11.2 — How are credentials protected?](#112--how-are-credentials-protected-in-transit)
+  - [11.3 — How does this scale to 200 devices?](#113--how-does-this-change-for-200-simultaneous-devices)
+
+---
+
 ## 1. Overview
 
 An offline-first provisioning system for IoT devices. The Wajntraub Demo Device broadcasts a Wi-Fi access point; a facility technician connects via any browser, is authenticated by the device's CA-signed TLS certificate, and submits Wi-Fi credentials over an encrypted HTTPS channel. The device then tears down the AP and connects to the target network using the received credentials. No internet connection is required at any point during provisioning. The configurator is any browser — no dedicated app is needed.

@@ -4,6 +4,21 @@ Wi-Fi provisioning for Linux IoT devices. A device running in SoftAP mode serves
 
 ---
 
+## Table of contents
+
+- [Roles](#roles)
+- [Prerequisites](#prerequisites)
+- [Step 1 — One-time setup](#step-1--one-time-setup)
+- [Step 2 — Install CA certificate](#step-2--install-ca-certificate)
+- [Step 3 — Run](#step-3--run)
+- [Run tests](#run-tests)
+- [Proof of concept — working demo](#proof-of-concept--working-demo)
+- [Project layout](#project-layout)
+- [Architecture](#architecture)
+- [Security notes and limitations](#security-notes-and-limitations)
+
+---
+
 ## Roles
 
 This demo involves two machines:
