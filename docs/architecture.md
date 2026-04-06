@@ -94,13 +94,16 @@ C4Container
 stateDiagram-v2
   [*] --> INIT
   INIT --> AP_MODE : ssl.SSLContext loaded · certs present
-  AP_MODE --> PROVISIONED : POST /provision received
-  PROVISIONED --> CONNECTING : credentials validated (non-empty SSID + password)
+  INIT --> ERROR : ssl load failed
+  AP_MODE --> PROVISIONED : POST /provision received · credentials validated
+  AP_MODE --> ERROR : timeout (10 min · configurable via env)
+  AP_MODE --> ERROR : AP or server start failed
+  PROVISIONED --> CONNECTING : immediate
   CONNECTING --> ONLINE : nmcli connect succeeded
   CONNECTING --> ERROR : nmcli connect failed
   ONLINE --> [*] : log success · exit
-  ERROR --> AP_MODE : restart AP · one retry
-  AP_MODE --> ERROR : timeout (10 min · configurable via env)
+  ERROR --> AP_MODE : retry (one attempt)
+  ERROR --> [*] : max retries exhausted · exit
 ```
 
 ### Component Breakdown
