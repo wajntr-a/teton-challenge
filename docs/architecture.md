@@ -564,6 +564,8 @@ The CA-signed device certificate model extends naturally to device-to-device mTL
 
 *Why not Wi-Fi mesh or BLE mesh?* Wi-Fi 802.11s requires the gateway to run SoftAP and mesh simultaneously — single-radio chips cannot reliably do both. BLE Mesh works over standard BLE hardware but the Linux stack (BlueZ `meshd`) is incomplete; production BLE Mesh runs on dedicated embedded RTOS stacks (Zephyr, Nordic nRF Connect SDK), not Linux.
 
+*Why not Zigbee or Z-Wave?* Both support mesh propagation and are viable for credential distribution. Zigbee (IEEE 802.15.4) is widely deployed in building automation; Z-Wave has been progressively open-sourced since 2016, with its full specification and IPR review completed in 2025. However, neither has a native IP stack — they require a coordinator or gateway to bridge into IP. This breaks the end-to-end TLS trust model: rather than each device independently opening a TLS connection and presenting its certificate, credentials would have to be decrypted and re-encrypted at the gateway, introducing a trusted intermediary not present in the original architecture. Thread avoids this entirely — it is IP-native (IPv6), so the same TLS + device certificate model extends to the mesh without modification.
+
 #### Recommendation
 
 ```
