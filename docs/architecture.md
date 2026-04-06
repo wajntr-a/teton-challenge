@@ -496,8 +496,8 @@ The following assumptions drive the analysis:
 
 Credentials injected before deployment at a staging table (office or warehouse). Ethernet switch + provisioning server. Technician on-site only plugs devices in.
 
-| | |
-|--|--|
+| Metric | Value |
+|---|---|
 | **Field time** | Zero |
 | **Staging time** | ~15–20s/device ≈ under 1h for 200 devices |
 | **Extra HW** | Ethernet switch (~€50), staging laptop |
@@ -511,8 +511,8 @@ Credentials injected before deployment at a staging table (office or warehouse).
 
 Each device runs SoftAP as in this demo. A Teton-issued tablet app scans for `Teton-Device-*` SSIDs, lists all discovered devices, asks for credentials once, then provisions them sequentially. Device code is unchanged.
 
-| | |
-|--|--|
+| Metric | Value |
+|---|---|
 | **Field time** | ~45s/device × 200 ≈ 2.5h (1 technician); ~1.25h (2 tablets) |
 | **Staging time** | None |
 | **Extra HW** | Managed Android tablet, ~€150–200 per technician |
@@ -528,8 +528,8 @@ Thread is a dedicated mesh radio (IEEE 802.15.4), separate from Wi-Fi and BLE. A
 
 The CA-signed device certificate model extends naturally to device-to-device mTLS within the mesh — both sides verify against the same Wajntraub Demo CA. The trust anchor is invariant across the provisioning channel.
 
-| | |
-|--|--|
+| Metric | Value |
+|---|---|
 | **Field time** | Minutes for 200 devices once mesh forms |
 | **Extra HW per device** | Thread radio co-processor (e.g. nRF52840, ~€5–10) = €1,000–2,000 for 200 devices; PCB revision required |
 | **Extra HW (infra)** | Thread border router per floor |
