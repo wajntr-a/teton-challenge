@@ -566,42 +566,45 @@ The CA-signed device certificate model extends naturally to device-to-device mTL
 
 *Why not Zigbee or Z-Wave?* Both support mesh propagation and are viable for credential distribution. Zigbee (IEEE 802.15.4) is widely deployed in building automation; Z-Wave has been progressively open-sourced since 2016, with its full specification and IPR review completed in 2025. However, neither has a native IP stack — they require a coordinator or gateway to bridge into IP. This breaks the end-to-end TLS trust model: rather than each device independently opening a TLS connection and presenting its certificate, credentials would have to be decrypted and re-encrypted at the gateway, introducing a trusted intermediary not present in the original architecture. Thread avoids this entirely — it is IP-native (IPv6), so the same TLS + device certificate model extends to the mesh without modification.
 
-#### Option D — Wi-Fi SoftAP peer tree *(no new hardware, logarithmic time)*
+#### Option D — Wi-Fi SoftAP peer propagation *(no new hardware, exponential spread)*
 
-Each provisioned device becomes a configurator — not an AP. Once a device has received credentials and connected to the target network, it scans for `Wajntraub-Demo-*` SSIDs, connects as a station to up to N of them, and POSTs the credentials to `https://setup.wajntraub-demo.local/provision` on each — exactly as the technician's browser did. The provisioning server on each target device is already running and unchanged. The device already has `certs/wajntraub-demo-ca.crt` on disk, so it can verify the next device's TLS certificate with no additional trust infrastructure. The only new piece of software is a lightweight client script that runs after the device connects to the target network.
+Each provisioned device becomes a configurator — not an AP. Once a device has received credentials and connected to the target network, it scans for `Wajntraub-Demo-*` SSIDs and POSTs credentials to each one it finds via `https://setup.wajntraub-demo.local/provision` — exactly as the technician's browser did. The provisioning server on each target device is already running and unchanged. The device already has `certs/wajntraub-demo-ca.crt` on disk, so it can verify each peer's TLS certificate with no additional trust infrastructure. The only new piece of software is a lightweight client script that runs after the device connects to the target network.
+
+**Reconnection is seamless:** when a provisioned device temporarily disconnects from the target network to connect to a peer's SoftAP, NetworkManager has already saved the target network profile on first connect. Reconnecting afterwards requires no password — just `nmcli connection up <profile>`. The device never needs to explicitly store or re-handle the credentials.
 
 **Discovery is self-coordinating:** a device broadcasting `Wajntraub-Demo-XXXXXX` is unprovisioned and waiting. A device that has connected to the target network is no longer broadcasting. Any provisioner simply scans for `Wajntraub-Demo-*` SSIDs — those are exactly the devices still needing provisioning. No coordination protocol needed; the existing SoftAP behavior already encodes the state.
 
 **Range extends naturally:** each newly provisioned device connects to peers from its own physical location, so coverage fans out across the floor without any technician movement.
 
-**Failure is self-healing:** devices overlap in range, so if a mid-tree device fails, its unprovisioned neighbours remain visible to other provisioned devices in adjacent branches and get picked up on their next scan pass. The only unrecoverable failure is a device physically isolated from all provisioned devices — unlikely in any realistic deployment.
+**Failure is self-healing:** devices overlap in range, so if a device fails mid-propagation, its unprovisioned neighbours remain visible to other provisioned devices nearby and get picked up on their next scan pass.
 
-**Time scales logarithmically.** With each device provisioning N peers in parallel waves:
+**Time grows exponentially in theory.** With no limit on N, every provisioned device immediately starts provisioning all visible peers. The number of provisioners doubles roughly every 45s:
 
-| Wave | New devices (N=3) | Cumulative |
-|---|---|---|
-| 0 (technician) | 1 | 1 |
-| 1 | 3 | 4 |
-| 2 | 9 | 13 |
-| 3 | 27 | 40 |
-| 4 | 81 | 121 |
-| 5 | 243 | 364 |
+| Time | Total provisioned |
+|---|---|
+| 45s | 1 |
+| 90s | 2 |
+| 135s | 4 |
+| 180s | 8 |
+| 225s | 16 |
+| 270s | 32 |
+| 315s | 64 |
+| 360s | 128 |
+| 405s | 256 ✓ |
 
-Within each wave, one device provisions N peers sequentially (N × 45s). Devices at the same tree level work in parallel. Total time = `ceil(log_N(200)) × N × 45s`, minimised around N ≈ e (~2.7), so **N=3 is optimal**:
-
-200 devices covered in **5 waves × 135s ≈ 11 minutes**. Increasing N beyond 3 raises total time: N=5 gives 4 waves × 225s = 15 minutes.
+**Best case: ~7 minutes for 200 devices.** In practice, two factors slow this down: (1) multiple provisioners may attempt to connect to the same unprovisioned AP simultaneously, causing collisions and retries; (2) early provisioners near the technician exhaust their visible neighbours and go idle while devices further out are still unprovisioned. The doubling model is a theoretical floor — real deployment time will be higher, but the order of magnitude (minutes, not hours) holds.
 
 | Metric | Value |
 |---|---|
-| **Field time** | ~11 min for 200 devices (N=3, optimal); higher N increases time |
+| **Field time** | ~7 min theoretical best case for 200 devices; longer in practice |
 | **Technician time** | One device only — the rest is autonomous |
 | **Staging time** | None |
 | **Extra HW** | None |
 | **Extra SW** | Lightweight client script on each device (server unchanged) |
 | **Device HW change** | None |
 
-**Pros:** no new hardware, no app, logarithmic time, self-extending range, self-healing, trust model unchanged — each device still presents its CA-signed cert during every provisioning handshake. Server-side device code is unchanged.
-**Cons:** requires a lightweight client script on each device; brief disconnect/reconnect cycle per wave as each device temporarily leaves the target network to connect to a peer's SoftAP.
+**Pros:** no new hardware, no app, exponential spread, self-extending range, self-healing, trust model unchanged — each device still presents its CA-signed cert during every provisioning handshake. NetworkManager handles reconnection transparently.
+**Cons:** requires a lightweight client script on each device; brief disconnect/reconnect cycle as each device temporarily leaves the target network to reach a peer's SoftAP; collision and depletion effects slow real-world propagation below the theoretical best case.
 
 #### Recommendation
 
