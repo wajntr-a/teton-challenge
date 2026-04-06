@@ -526,16 +526,16 @@ Credentials injected before deployment at a staging table (office or warehouse).
 **Pros:** fastest, zero field skill required, no wireless attack surface at provisioning, scales to any fleet size.
 **Cons:** blocked if target credentials are unknown at staging time (hospital VLANs, rotating credentials).
 
-#### Option B — Wi-Fi SoftAP + tablet app *(recommended for field provisioning)*
+#### Option B — Wi-Fi SoftAP + provisioning app *(recommended for field provisioning)*
 
-Each device runs SoftAP as in this demo. A Teton-issued tablet app scans for `Teton-Device-*` SSIDs, lists all discovered devices, asks for credentials once, then provisions them sequentially. Device code is unchanged.
+Each device runs SoftAP as in this demo. A Teton-issued app (tablet or laptop) scans for `Teton-Device-*` SSIDs, lists all discovered devices, asks for credentials once, then provisions them sequentially. Device code is unchanged.
 
 | Metric | Value |
 |---|---|
-| **Field time** | ~45s/device × 200 ≈ 2.5h (1 technician); ~1.25h (2 tablets) |
+| **Field time** | ~45s/device × 200 ≈ 2.5h (1 technician); ~1.25h (2 devices) |
 | **Staging time** | None |
-| **Extra HW** | Managed Android tablet, ~€150–200 per technician |
-| **Extra SW** | Android or React Native tablet app |
+| **Extra HW** | Managed tablet or laptop per technician |
+| **Extra SW** | Provisioning app (any platform — Windows, Android, iOS) |
 | **Device HW change** | None |
 
 **Pros:** no device code changes, works offline, same CA cert trust model.
