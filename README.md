@@ -234,17 +234,6 @@ docs/
 
 ---
 
-## Production deployment
-
-This demo uses a manually invoked process and a repo-local `.venv`. For a production device fleet:
-
-| Step | Approach |
-|---|---|
-| **Service lifecycle** | Replace manual invocation with a `systemd` unit. `ExecStart=/opt/wajntraub-provision/.venv/bin/python3 device/provision.py` gives auto-start on boot, restart on failure, and `journald` logging — no terminal session required. |
-| **Packaging** | Build a `.deb` (using `fpm` or a `debian/` directory). The `postinst` script runs `setup.sh`, creates the venv, installs deps, and enables the systemd unit. Installation becomes `dpkg -i wajntraub-provision_1.0_arm64.deb`. |
-
----
-
 ## Architecture
 
 See [docs/architecture.md](docs/architecture.md) for the full system design including C4 diagrams, PKI model, state machine description, and test strategy.

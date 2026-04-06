@@ -246,6 +246,15 @@ flask
 - Requires `root` for port 443, `hostapd`, `dnsmasq`, and `nmcli`
 - On Raspberry Pi: the BCM43xx handles AP and station roles sequentially — the SoftAP must be torn down before `nmcli connect`; concurrent AP + station mode is not supported on this chip
 
+### Production Service Packaging
+
+This demo uses a manually invoked process and a repo-local `.venv`. For a production device fleet:
+
+| Step | Approach |
+|---|---|
+| **Service lifecycle** | Replace manual invocation with a `systemd` unit. `ExecStart=/opt/wajntraub-provision/.venv/bin/python3 device/provision.py` gives auto-start on boot, restart on failure, and `journald` logging — no terminal session required. |
+| **Packaging** | Build a `.deb` (using `fpm` or a `debian/` directory). The `postinst` script runs `setup.sh`, creates the venv, installs deps, and enables the systemd unit. Installation becomes `dpkg -i wajntraub-provision_1.0_arm64.deb`. |
+
 ### CI/CD
 
 Not applicable for this submission. Manual setup and run per README.
