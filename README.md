@@ -10,8 +10,8 @@ This demo involves two machines:
 
 | Role | Description |
 |---|---|
-| **Device** | The Linux machine being provisioned. Runs the provisioning software, broadcasts the SoftAP, and serves the credential form. Must be Ubuntu 22.04 LTS or Raspberry Pi OS Bookworm with a Wi-Fi interface. |
-| **Configurator** | The machine used to submit Wi-Fi credentials — any laptop, phone, or tablet with a browser. Must connect to the Device's Wi-Fi AP during provisioning. |
+| **Device** | The Linux machine being provisioned. Runs the provisioning software, broadcasts the SoftAP, and serves the credential form. Tested on Ubuntu 24.04 LTS (x86-64) with a Wi-Fi interface. Ubuntu 22.04 LTS and Raspberry Pi OS Bookworm are expected to work but untested. |
+| **Configurator** | The machine used to submit Wi-Fi credentials. Tested with Firefox on Windows. Any browser on any OS is expected to work — no software installation required beyond trusting the CA certificate. Must connect to the Device's Wi-Fi AP during provisioning. |
 
 For a single-machine demo (device and configurator on the same Ubuntu machine), all steps run on that one machine and `install-ca.sh` handles the browser trust automatically.
 
@@ -21,7 +21,7 @@ For a single-machine demo (device and configurator on the same Ubuntu machine), 
 
 ### Device
 
-Raspberry Pi OS Bookworm or Ubuntu 22.04 LTS (x86-64), with a Wi-Fi interface capable of AP mode.
+Ubuntu 24.04 LTS (x86-64), with a Wi-Fi interface capable of AP mode. Ubuntu 22.04 LTS and Raspberry Pi OS Bookworm are expected to work but untested.
 
 **Required packages** — run on the **Device**:
 
@@ -38,7 +38,7 @@ Python dependencies are installed automatically by `setup.sh` into a `.venv` at 
 
 ### Configurator
 
-Any device with a browser (Chrome, Firefox, Safari, Edge). No software installation required beyond trusting the CA certificate (see [Install CA certificate](#install-ca-certificate) below).
+Tested with Firefox on Windows. Any browser on any OS is expected to work (Chrome, Safari, Edge). No software installation required beyond trusting the CA certificate (see [Install CA certificate](#install-ca-certificate) below).
 
 ---
 

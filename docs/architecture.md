@@ -225,7 +225,7 @@ teton-challenge/
 
 ### Bare-Metal Requirements
 
-**Target platforms:** Ubuntu 22.04+, Raspberry Pi OS Bookworm (64-bit)
+**Target platforms:** Ubuntu 24.04 LTS (x86-64) — tested. Ubuntu 22.04 LTS and Raspberry Pi OS Bookworm (64-bit) expected to work, untested.
 
 **System packages (apt):**
 ```
@@ -243,7 +243,7 @@ flask
 
 **Platform notes:**
 - Requires `root` for port 443, `hostapd`, `dnsmasq`, and `nmcli`
-- On Raspberry Pi: the BCM43xx handles AP and station roles sequentially — the SoftAP must be torn down before `nmcli connect`; concurrent AP + station mode is not supported on this chip
+- On Raspberry Pi (untested): the BCM43xx handles AP and station roles sequentially — the SoftAP must be torn down before `nmcli connect`; concurrent AP + station mode is not supported on this chip
 
 ### Production Service Packaging
 
