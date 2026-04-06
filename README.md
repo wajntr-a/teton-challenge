@@ -10,7 +10,7 @@ This demo involves two machines:
 
 | Role | Description |
 |---|---|
-| **Device** | The Linux machine being provisioned. Runs the provisioning software, broadcasts the SoftAP, and serves the credential form. Tested on Ubuntu 24.04 LTS (x86-64) with a Wi-Fi interface. Ubuntu 22.04 LTS and Raspberry Pi OS Bookworm are expected to work but untested. |
+| **Device** | The Linux machine being provisioned. Runs the provisioning software, broadcasts the SoftAP, and serves the credential form. Tested on Ubuntu 24.04 LTS (x86-64). Expected to work on any Debian-based Linux with a Wi-Fi interface capable of AP mode. |
 | **Configurator** | The machine used to submit Wi-Fi credentials. Tested with Firefox on Windows. Any browser on any OS is expected to work — no software installation required beyond trusting the CA certificate. Must connect to the Device's Wi-Fi AP during provisioning. |
 
 For a single-machine demo (device and configurator on the same Ubuntu machine), all steps run on that one machine and `install-ca.sh` handles the browser trust automatically.
@@ -21,7 +21,7 @@ For a single-machine demo (device and configurator on the same Ubuntu machine), 
 
 ### Device
 
-Ubuntu 24.04 LTS (x86-64), with a Wi-Fi interface capable of AP mode. Ubuntu 22.04 LTS and Raspberry Pi OS Bookworm are expected to work but untested.
+Ubuntu 24.04 LTS (x86-64) — tested. Any Debian-based Linux with a Wi-Fi interface capable of AP mode is expected to work.
 
 **Required packages** — run on the **Device**:
 

@@ -51,7 +51,7 @@ C4Context
 | TLS (production) | tpm2-pkcs11 + OpenSSL PKCS#11 provider | — | Exposes TPM key via PKCS#11; reachable from Python ssl via `pkcs11:` URI; private key never leaves hardware |
 | SoftAP | hostapd | latest apt | Standard Linux Wi-Fi AP daemon |
 | DHCP + DNS | dnsmasq | latest apt | One config line adds DNS for `setup.wajntraub-demo.local`; already needed for DHCP |
-| Network management | nmcli (NetworkManager) | latest apt | Standard on Pi OS and Ubuntu; handles station connect and disconnect |
+| Network management | nmcli (NetworkManager) | latest apt | Standard on Debian-based Linux; handles station connect and disconnect |
 | CA / cert tooling | OpenSSL CLI | 3.x | One-time setup script; generates demo CA and signs device CSR |
 | Test framework | pytest | latest | Standard Python test runner |
 
@@ -225,7 +225,7 @@ teton-challenge/
 
 ### Bare-Metal Requirements
 
-**Target platforms:** Ubuntu 24.04 LTS (x86-64) — tested. Ubuntu 22.04 LTS and Raspberry Pi OS Bookworm (64-bit) expected to work, untested.
+**Target platforms:** Ubuntu 24.04 LTS (x86-64) — tested. Any Debian-based Linux with a Wi-Fi interface capable of AP mode expected to work.
 
 **System packages (apt):**
 ```
@@ -243,7 +243,7 @@ flask
 
 **Platform notes:**
 - Requires `root` for port 443, `hostapd`, `dnsmasq`, and `nmcli`
-- On Raspberry Pi (untested): the BCM43xx handles AP and station roles sequentially — the SoftAP must be torn down before `nmcli connect`; concurrent AP + station mode is not supported on this chip
+- Some Wi-Fi chips (e.g. single-radio adapters) handle AP and station roles sequentially — the SoftAP must be torn down before `nmcli connect`; concurrent AP + station mode is not supported on all hardware
 
 ### Production Service Packaging
 
