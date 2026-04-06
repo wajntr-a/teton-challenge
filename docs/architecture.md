@@ -229,7 +229,7 @@ teton-challenge/
 
 **System packages (apt):**
 ```
-hostapd dnsmasq network-manager python3 python3-pip openssl libnss3-tools
+hostapd dnsmasq network-manager python3 python3-pip openssl libnss3-tools iw
 ```
 
 **Python runtime packages (`requirements.txt`):**
