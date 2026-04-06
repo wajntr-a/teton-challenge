@@ -612,16 +612,4 @@ Credentials injected before deployment at a staging table (office or warehouse).
 **Pros:** fastest, zero field skill required, no wireless attack surface at provisioning, scales to any fleet size.
 **Cons:** blocked if target credentials are unknown at staging time (hospital VLANs, rotating credentials).
 
-#### Recommendation
-
-```
-Are target credentials known before on-site arrival?
-  YES → Option D. Zero field time, zero extra device cost.
-  NO  → Hardware change acceptable?
-          YES → Fleet > ~2,000 devices?
-                  YES → Option B (Matter/Thread). Hardware investment justified at scale.
-                  NO  → Option A. Exponential spread, no new hardware, autonomous after first device.
-          NO  → Option C. Simplest app-based approach, no device changes needed.
-```
-
 The SoftAP flow in this submission demonstrates the trust model — CA-signed device certificates, authenticated TLS — that underpins all four options. The provisioning channel changes at scale; the security architecture does not.
