@@ -16,6 +16,10 @@
   - [11.1 — Why this communication channel?](#111--why-this-communication-channel-and-what-was-traded-off)
   - [11.2 — How are credentials protected?](#112--how-are-credentials-protected-in-transit)
   - [11.3 — How does this scale to 200 devices?](#113--how-does-this-change-for-200-simultaneous-devices)
+    - [Option A — Wi-Fi SoftAP peer propagation](#option-a--wi-fi-softap-peer-propagation-no-new-hardware-exponential-spread)
+    - [Option B — Matter over Thread](#option-b--matter-over-thread-true-simultaneous-propagation)
+    - [Option C — Wi-Fi SoftAP + provisioning app](#option-c--wi-fi-softap--provisioning-app-operational-improvement-not-a-simultaneity-solution)
+    - [Option D — Zero-touch pre-provisioning](#option-d--zero-touch-pre-provisioning)
 
 ---
 
@@ -511,62 +515,7 @@ The following assumptions drive the analysis:
 5. Non-technical operator — no CLI, no per-device decision-making
 6. Target network credentials may or may not be known before on-site arrival *(pivotal — see below)*
 
-#### Option A — Zero-touch pre-provisioning
-
-Credentials injected before deployment at a staging table (office or warehouse). Ethernet switch + provisioning server. Technician on-site only plugs devices in.
-
-| Metric | Value |
-|---|---|
-| **Field time** | Zero |
-| **Staging time** | ~15–20s/device ≈ under 1h for 200 devices |
-| **Extra HW** | Ethernet switch (~€50), staging laptop |
-| **Extra SW** | Ethernet provisioning server script |
-| **Device HW change** | None |
-
-**Pros:** fastest, zero field skill required, no wireless attack surface at provisioning, scales to any fleet size.
-**Cons:** blocked if target credentials are unknown at staging time (hospital VLANs, rotating credentials).
-
-#### Option B — Wi-Fi SoftAP + provisioning app *(operational improvement, not a simultaneity solution)*
-
-Each device runs SoftAP as in this demo. A Teton-issued app (tablet or laptop) scans for `Teton-Device-*` SSIDs, lists all discovered devices, asks for credentials once, then provisions them sequentially. Device code is unchanged.
-
-This option does **not** answer the simultaneity question — provisioning is still one device at a time, one after another. What it removes is the per-device manual steps: the technician enters credentials once and the app iterates. The improvement is operational, not architectural.
-
-There are also practical RF limitations at scale. All devices currently broadcast on the same channel (channel 6). With 200 APs in the same building, co-channel interference degrades signal quality and scan reliability — this would need to be addressed (e.g. randomising across the three non-overlapping 2.4 GHz channels). Additionally, OS Wi-Fi scan APIs typically return 50–100 APs per pass; seeing all 200 requires multiple scan iterations and may still miss devices at the edge of range. In a large hospital wing, a single technician position won't cover the whole floor — multiple technicians working in zones would be needed, further underscoring that this is zone-by-zone sequential work, not simultaneous.
-
-| Metric | Value |
-|---|---|
-| **Field time** | ~45s/device × 200 ≈ 2.5h (1 technician); parallelisable across zones with multiple technicians |
-| **Staging time** | None |
-| **Extra HW** | Managed tablet or laptop per technician |
-| **Extra SW** | Provisioning app (any platform — Windows, Android, iOS) |
-| **Device HW change** | None |
-
-**Pros:** no device code changes, works offline, same CA cert trust model, credentials entered once.
-**Cons:** fundamentally sequential — does not solve the simultaneity problem. RF interference at 200 devices on one channel requires mitigation. App development is non-trivial.
-
-#### Option C — Matter over Thread (true simultaneous propagation)
-
-Thread is a dedicated mesh radio (IEEE 802.15.4), separate from Wi-Fi and BLE. A tablet provisions the first device (Thread border router) via BLE; the border router joins the Thread mesh; credentials propagate to all mesh nodes simultaneously; all devices independently connect to the target Wi-Fi network.
-
-The CA-signed device certificate model extends naturally to device-to-device mTLS within the mesh — both sides verify against the same Wajntraub Demo CA. The trust anchor is invariant across the provisioning channel.
-
-| Metric | Value |
-|---|---|
-| **Field time** | Minutes for 200 devices once mesh forms |
-| **Extra HW per device** | Thread radio co-processor (e.g. nRF52840, ~€5–10) = €1,000–2,000 for 200 devices; PCB revision required |
-| **Extra HW (infra)** | Thread border router per floor |
-| **Extra SW** | Thread stack integration, Matter commissioning app, border router firmware |
-| **Device HW change** | Yes — new silicon |
-
-**Pros:** true simultaneity, no per-device technician time, aligns with the industry direction (Matter is the emerging IoT interoperability standard).
-**Cons:** significant upfront investment. Not justified at 200 devices; economics work at 10,000+.
-
-*Why not Wi-Fi mesh or BLE mesh?* Wi-Fi 802.11s requires the gateway to run SoftAP and mesh simultaneously — single-radio chips cannot reliably do both. BLE Mesh works over standard BLE hardware but the Linux stack (BlueZ `meshd`) is incomplete; production BLE Mesh runs on dedicated embedded RTOS stacks (Zephyr, Nordic nRF Connect SDK), not Linux.
-
-*Why not Zigbee or Z-Wave?* Both support mesh propagation and are viable for credential distribution. Zigbee (IEEE 802.15.4) is widely deployed in building automation; Z-Wave has been progressively open-sourced since 2016, with its full specification and IPR review completed in 2025. However, neither has a native IP stack — they require a coordinator or gateway to bridge into IP. This breaks the end-to-end TLS trust model: rather than each device independently opening a TLS connection and presenting its certificate, credentials would have to be decrypted and re-encrypted at the gateway, introducing a trusted intermediary not present in the original architecture. Thread avoids this entirely — it is IP-native (IPv6), so the same TLS + device certificate model extends to the mesh without modification.
-
-#### Option D — Wi-Fi SoftAP peer propagation *(no new hardware, exponential spread)*
+#### Option A — Wi-Fi SoftAP peer propagation *(no new hardware, exponential spread)*
 
 Each provisioned device becomes a configurator — not an AP. Once a device has received credentials and connected to the target network, it scans for `Wajntraub-Demo-*` SSIDs and POSTs credentials to each one it finds via `https://setup.wajntraub-demo.local/provision` — exactly as the technician's browser did. The provisioning server on each target device is already running and unchanged. The device already has `certs/wajntraub-demo-ca.crt` on disk, so it can verify each peer's TLS certificate with no additional trust infrastructure. The only new piece of software is a lightweight client script that runs after the device connects to the target network.
 
@@ -606,16 +555,71 @@ Each provisioned device becomes a configurator — not an AP. Once a device has 
 **Pros:** no new hardware, no app, exponential spread, self-extending range, self-healing, trust model unchanged — each device still presents its CA-signed cert during every provisioning handshake. NetworkManager handles reconnection transparently.
 **Cons:** requires a lightweight client script on each device; brief disconnect/reconnect cycle as each device temporarily leaves the target network to reach a peer's SoftAP; collision and depletion effects slow real-world propagation below the theoretical best case.
 
+#### Option B — Matter over Thread (true simultaneous propagation)
+
+Thread is a dedicated mesh radio (IEEE 802.15.4), separate from Wi-Fi and BLE. A tablet provisions the first device (Thread border router) via BLE; the border router joins the Thread mesh; credentials propagate to all mesh nodes simultaneously; all devices independently connect to the target Wi-Fi network.
+
+The CA-signed device certificate model extends naturally to device-to-device mTLS within the mesh — both sides verify against the same Wajntraub Demo CA. The trust anchor is invariant across the provisioning channel.
+
+| Metric | Value |
+|---|---|
+| **Field time** | Minutes for 200 devices once mesh forms |
+| **Extra HW per device** | Thread radio co-processor (e.g. nRF52840, ~€5–10) = €1,000–2,000 for 200 devices; PCB revision required |
+| **Extra HW (infra)** | Thread border router per floor |
+| **Extra SW** | Thread stack integration, Matter commissioning app, border router firmware |
+| **Device HW change** | Yes — new silicon |
+
+**Pros:** true simultaneity, no per-device technician time, aligns with the industry direction (Matter is the emerging IoT interoperability standard).
+**Cons:** significant upfront investment. Not justified at 200 devices; economics work at 10,000+.
+
+*Why not Wi-Fi mesh or BLE mesh?* Wi-Fi 802.11s requires the gateway to run SoftAP and mesh simultaneously — single-radio chips cannot reliably do both. BLE Mesh works over standard BLE hardware but the Linux stack (BlueZ `meshd`) is incomplete; production BLE Mesh runs on dedicated embedded RTOS stacks (Zephyr, Nordic nRF Connect SDK), not Linux.
+
+*Why not Zigbee or Z-Wave?* Both support mesh propagation and are viable for credential distribution. Zigbee (IEEE 802.15.4) is widely deployed in building automation; Z-Wave has been progressively open-sourced since 2016, with its full specification and IPR review completed in 2025. However, neither has a native IP stack — they require a coordinator or gateway to bridge into IP. This breaks the end-to-end TLS trust model: rather than each device independently opening a TLS connection and presenting its certificate, credentials would have to be decrypted and re-encrypted at the gateway, introducing a trusted intermediary not present in the original architecture. Thread avoids this entirely — it is IP-native (IPv6), so the same TLS + device certificate model extends to the mesh without modification.
+
+#### Option C — Wi-Fi SoftAP + provisioning app *(operational improvement, not a simultaneity solution)*
+
+Each device runs SoftAP as in this demo. A Teton-issued app (tablet or laptop) scans for `Teton-Device-*` SSIDs, lists all discovered devices, asks for credentials once, then provisions them sequentially. Device code is unchanged.
+
+This option does **not** answer the simultaneity question — provisioning is still one device at a time, one after another. What it removes is the per-device manual steps: the technician enters credentials once and the app iterates. The improvement is operational, not architectural.
+
+There are also practical RF limitations at scale. All devices currently broadcast on the same channel (channel 6). With 200 APs in the same building, co-channel interference degrades signal quality and scan reliability — this would need to be addressed (e.g. randomising across the three non-overlapping 2.4 GHz channels). Additionally, OS Wi-Fi scan APIs typically return 50–100 APs per pass; seeing all 200 requires multiple scan iterations and may still miss devices at the edge of range. In a large hospital wing, a single technician position won't cover the whole floor — multiple technicians working in zones would be needed, further underscoring that this is zone-by-zone sequential work, not simultaneous.
+
+| Metric | Value |
+|---|---|
+| **Field time** | ~45s/device × 200 ≈ 2.5h (1 technician); parallelisable across zones with multiple technicians |
+| **Staging time** | None |
+| **Extra HW** | Managed tablet or laptop per technician |
+| **Extra SW** | Provisioning app (any platform — Windows, Android, iOS) |
+| **Device HW change** | None |
+
+**Pros:** no device code changes, works offline, same CA cert trust model, credentials entered once.
+**Cons:** fundamentally sequential — does not solve the simultaneity problem. RF interference at 200 devices on one channel requires mitigation. App development is non-trivial.
+
+#### Option D — Zero-touch pre-provisioning
+
+Credentials injected before deployment at a staging table (office or warehouse). Ethernet switch + provisioning server. Technician on-site only plugs devices in.
+
+| Metric | Value |
+|---|---|
+| **Field time** | Zero |
+| **Staging time** | ~15–20s/device ≈ under 1h for 200 devices |
+| **Extra HW** | Ethernet switch (~€50), staging laptop |
+| **Extra SW** | Ethernet provisioning server script |
+| **Device HW change** | None |
+
+**Pros:** fastest, zero field skill required, no wireless attack surface at provisioning, scales to any fleet size.
+**Cons:** blocked if target credentials are unknown at staging time (hospital VLANs, rotating credentials).
+
 #### Recommendation
 
 ```
 Are target credentials known before on-site arrival?
-  YES → Option A. Zero field time, zero extra device cost.
-  NO  → No hardware change budget?
-          YES → Option D. Logarithmic time, no new hardware, autonomous after first device.
-          NO  → Fleet > ~2,000 devices?
-                  YES → Option C (Matter/Thread). Hardware investment justified at scale.
-                  NO  → Option B. Simplest app-based approach, no device changes needed.
+  YES → Option D. Zero field time, zero extra device cost.
+  NO  → Hardware change acceptable?
+          YES → Fleet > ~2,000 devices?
+                  YES → Option B (Matter/Thread). Hardware investment justified at scale.
+                  NO  → Option A. Exponential spread, no new hardware, autonomous after first device.
+          NO  → Option C. Simplest app-based approach, no device changes needed.
 ```
 
 The SoftAP flow in this submission demonstrates the trust model — CA-signed device certificates, authenticated TLS — that underpins all four options. The provisioning channel changes at scale; the security architecture does not.
