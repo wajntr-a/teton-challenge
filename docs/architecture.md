@@ -384,8 +384,25 @@ After `setup.sh`, the evaluator installs `certs/wajntraub-demo-ca.crt` on their 
 |---|---|---|---|
 | Software private key on disk (`certs/device.key`) | Medium | Yes — demo only | Root-readable file; production uses tpm2-pkcs11 with hardware TPM — key never leaves chip |
 | No HSTS preload on `setup.wajntraub-demo.local` | Medium | Yes — demo only | Preload requires formal domain submission; evaluators navigate directly to `https://`; documented as production step |
-| No mutual TLS (client auth) | Low | Yes | Device identity is the security requirement; configurator identity is not — any technician with physical proximity is authorized |
+| Open SoftAP (no WPA2) | High | Yes — demo only | Any device in radio range can connect to the AP and POST credentials directly to `192.168.4.1:443`, bypassing browser TLS validation entirely with `curl -k`. Physical proximity to the device is the only barrier. |
+| No mutual TLS (client auth) | Medium | Yes — demo only | TLS authenticates the server (device) but not the client (configurator). An attacker already on the AP subnet can submit a provisioning request without a browser. |
 | Port 443 requires root | Low | Yes | Bare-metal provisioning daemon on a dedicated embedded device |
+
+### Production Hardening Path
+
+The two risks above are linked and share the same production fix:
+
+**Step 1 — WPA2 per-device AP password**
+Add WPA2 to the hostapd config with a password unique to each device (e.g. derived from `HMAC(shared_secret, MAC_address)`). This blocks unauthorized devices from connecting to the AP entirely.
+
+A unique-per-device password cannot be communicated to the technician via a general browser — it requires a purpose-built configurator app that either scans a QR code on the device or derives the password from the MAC suffix using the shared secret baked into the app at build time.
+
+**Step 2 — Mutual TLS via configurator app**
+Once a native app exists, client certificate authentication becomes straightforward: the app carries a cert signed by the Wajntraub Demo CA and presents it during the TLS handshake. Flask enables `ssl.CERT_REQUIRED` and rejects any client without a valid cert. No UX cost — the handshake is transparent to the technician.
+
+For device-to-device provisioning (peer propagation), mTLS is even simpler: both sides already hold CA-signed certs (`device.crt`), so mutual authentication requires no additional infrastructure.
+
+**Together:** WPA2 closes the network layer, mTLS closes the application layer. Neither is sufficient alone.
 
 ---
 
