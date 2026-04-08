@@ -390,7 +390,7 @@ After `setup.sh`, the evaluator installs `certs/wajntraub-demo-ca.crt` on their 
 
 ### Production Hardening Path
 
-The two risks above are linked and share the same production fix:
+The **Open SoftAP** and **No mutual TLS** risks are linked and share the same production fix:
 
 **Step 1 — WPA2 per-device AP password**
 Add WPA2 to the hostapd config with a password unique to each device (e.g. derived from `HMAC(shared_secret, MAC_address)`). This blocks unauthorized devices from connecting to the AP entirely.
