@@ -395,7 +395,7 @@ The **Open SoftAP** and **No mutual TLS** risks are linked and share the same pr
 **Step 1 — WPA2 per-device AP password**
 Add WPA2 to the hostapd config with a password unique to each device (e.g. derived from `HMAC(shared_secret, MAC_address)`). This blocks unauthorized devices from connecting to the AP entirely.
 
-A unique-per-device password cannot be communicated to the technician via a general browser — it requires a purpose-built configurator app that either scans a QR code on the device or derives the password from the MAC suffix using the shared secret baked into the app at build time.
+A unique-per-device password cannot be communicated to the technician via a general browser — it requires a purpose-built configurator app that derives the password from the MAC suffix using a shared secret baked into the app at build time.
 
 **Step 2 — Mutual TLS via configurator app**
 Once a native app exists, client certificate authentication becomes straightforward: the app carries a cert signed by the Wajntraub Demo CA and presents it during the TLS handshake. Flask enables `ssl.CERT_REQUIRED` and rejects any client without a valid cert. No UX cost — the handshake is transparent to the technician.
